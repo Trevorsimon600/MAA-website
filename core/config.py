@@ -1,16 +1,50 @@
 import os
 from dotenv import load_dotenv
 
+# Load variables from .env when running locally
 load_dotenv()
 
-class Config:
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    DEFAULT_MODEL = "openai/gpt-oss-20b"  # Good free model on open ai
-    MAX_STEPS = 8
-    TEMPERATURE = 0.3
+
+def get_secret(name):
+    """
+    Get a secret from the environment first.
+    If it is not available, try Streamlit Secrets.
+    """
+
+    # Local environment / .env
+    value = os.getenv(name)
+
+    if value:
+        return value
+
+    # Streamlit Cloud
+    try:
+        import streamlit as st
+
+        value = st.secrets.get(name)
+
+        if value:
+            return value
+
+    except Exception:
+        pass
+
+    return None
+
+
+class Settings:
+    GROQ_API_KEY = get_secret("GROQ_API_KEY")
+    OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 
     @classmethod
     def validate(cls):
-        if not cls.GROQ_API_KEY:
-            raise ValueError("GROQ_API_KEY is missing in .env file")
-        print("✅ Config loaded successfully")
+        """
+        Make sure at least one AI provider is configured.
+        """
+
+        if not cls.GROQ_API_KEY and not cls.OPENAI_API_KEY:
+            raise ValueError(
+                "No AI API key configured. "
+                "Add GROQ_API_KEY or OPENAI_API_KEY "
+                "to .env or Streamlit Secrets."
+            )
