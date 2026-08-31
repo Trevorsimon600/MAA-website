@@ -1,0 +1,468 @@
+import React, { useState } from "react";
+import {
+  LayoutDashboard, Package, Users, Truck, Wrench, Tag, Megaphone,
+  BarChart3, Settings, Search, Bell, ChevronDown, TrendingUp, TrendingDown,
+  DollarSign, ShoppingBag, UserPlus, Sparkles, ArrowUpRight, ArrowDownRight,
+  Plus, Filter, MoreVertical, CheckCircle2, Clock, AlertTriangle, MapPin
+} from "lucide-react";
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, AreaChart, Area,
+} from "recharts";
+
+// ---------- Design tokens ----------
+const C = {
+  primary: "#10B981",
+  primaryLight: "#D1FAE5",
+  blue: "#3B82F6",
+  blueLight: "#DBEAFE",
+  bg: "#FFFFFF",
+  section: "#F9FAFB",
+  border: "#F3F4F6",
+  success: "#22C55E",
+  warning: "#F59E0B",
+  error: "#EF4444",
+  info: "#3B82F6",
+  text: "#111827",
+  sub: "#6B7280",
+  faint: "#9CA3AF",
+};
+
+// ---------- Sample data ----------
+const revenueData = [
+  { day: "Mon", revenue: 18500, orders: 22 },
+  { day: "Tue", revenue: 21200, orders: 26 },
+  { day: "Wed", revenue: 19800, orders: 24 },
+  { day: "Thu", revenue: 26400, orders: 31 },
+  { day: "Fri", revenue: 31200, orders: 38 },
+  { day: "Sat", revenue: 29600, orders: 35 },
+  { day: "Sun", revenue: 14200, orders: 17 },
+];
+
+const serviceMix = [
+  { name: "Wash & Fold", value: 58 },
+  { name: "Dry Clean", value: 24 },
+  { name: "Iron Only", value: 18 },
+];
+
+const recentOrders = [
+  { id: "EC-1042", customer: "Amina Wanjiru", service: "Wash & Fold", amount: 650, status: "progress", time: "12 min ago" },
+  { id: "EC-1041", customer: "David Otieno", service: "Dry Clean", amount: 1200, status: "tracking", time: "34 min ago" },
+  { id: "EC-1040", customer: "Grace Njeri", service: "Wash & Fold", amount: 480, status: "completed", time: "1 hr ago" },
+  { id: "EC-1039", customer: "Brian Kiptoo", service: "Iron Only", amount: 320, status: "completed", time: "2 hr ago" },
+  { id: "EC-1038", customer: "Faith Achieng", service: "Wash & Fold", amount: 900, status: "cancelled", time: "3 hr ago" },
+];
+
+const activityFeed = [
+  { icon: Package, text: "New order EC-1042 from Amina Wanjiru", time: "2 min ago", color: C.blue },
+  { icon: Truck, text: "Driver James marked EC-1039 as delivered", time: "18 min ago", color: C.success },
+  { icon: UserPlus, text: "New customer signup — Faith Achieng", time: "41 min ago", color: C.primary },
+  { icon: AlertTriangle, text: "Order EC-1038 flagged for late pickup", time: "1 hr ago", color: C.warning },
+  { icon: DollarSign, text: "M-PESA payment received · KES 1,200", time: "1 hr ago", color: C.success },
+];
+
+const aiInsights = [
+  {
+    title: "Peak demand shifting to Fridays",
+    body: "Friday orders are up 34% vs last month. Consider adding a second driver shift.",
+    tone: "info",
+  },
+  {
+    title: "3 customers at risk of churn",
+    body: "No orders in 21+ days from previously regular customers. A win-back message could help.",
+    tone: "warning",
+  },
+  {
+    title: "Dry Clean margin improving",
+    body: "Average order value for Dry Clean is up 12% this week — pricing change is working.",
+    tone: "success",
+  },
+];
+
+// ---------- Reusable primitives ----------
+function StatusBadge({ status }) {
+  const map = {
+    completed: { bg: "#DCFCE7", fg: C.success, label: "Completed" },
+    progress: { bg: "#FEF3C7", fg: C.warning, label: "In Progress" },
+    tracking: { bg: "#DBEAFE", fg: C.info, label: "Tracking" },
+    cancelled: { bg: "#FEE2E2", fg: C.error, label: "Cancelled" },
+  };
+  const s = map[status] || map.completed;
+  return (
+    <span className="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap" style={{ background: s.bg, color: s.fg }}>
+      {s.label}
+    </span>
+  );
+}
+
+function Card({ children, className = "" }) {
+  return (
+    <div
+      className={`bg-white rounded-2xl border border-gray-100 ${className}`}
+      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function KpiCard({ label, value, delta, positive, icon: Icon, accent }) {
+  return (
+    <Card className="p-5 flex-1 min-w-[220px]">
+      <div className="flex items-start justify-between mb-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: accent + "1A" }}>
+          <Icon size={18} color={accent} />
+        </div>
+        <span
+          className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
+          style={{ background: positive ? "#DCFCE7" : "#FEE2E2", color: positive ? C.success : C.error }}
+        >
+          {positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+          {delta}
+        </span>
+      </div>
+      <p className="text-2xl font-bold" style={{ color: C.text, letterSpacing: "-0.02em" }}>{value}</p>
+      <p className="text-sm mt-1" style={{ color: C.sub }}>{label}</p>
+    </Card>
+  );
+}
+
+const insightTone = {
+  info: { bg: C.blueLight, fg: C.blue },
+  warning: { bg: "#FEF3C7", fg: C.warning },
+  success: { bg: C.primaryLight, fg: C.primary },
+};
+
+// ---------- Sidebar ----------
+function Sidebar({ active, setActive }) {
+  const items = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "orders", label: "Orders", icon: Package },
+    { key: "customers", label: "Customers", icon: Users },
+    { key: "drivers", label: "Drivers", icon: Truck },
+    { key: "services", label: "Services", icon: Wrench },
+    { key: "pricing", label: "Pricing", icon: Tag },
+    { key: "marketing", label: "Marketing", icon: Megaphone },
+    { key: "reports", label: "Reports", icon: BarChart3 },
+    { key: "settings", label: "Settings", icon: Settings },
+  ];
+  return (
+    <div className="w-60 h-full flex flex-col flex-shrink-0" style={{ background: "#fff", borderRight: `1px solid ${C.border}` }}>
+      <div className="h-16 flex items-center gap-2 px-5" style={{ borderBottom: `1px solid ${C.border}` }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: C.primary }}>
+          <Sparkles size={16} color="#fff" />
+        </div>
+        <span className="font-bold text-base" style={{ color: C.text }}>EcoCleaners</span>
+      </div>
+      <div className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
+        {items.map((it) => {
+          const isActive = active === it.key;
+          return (
+            <button
+              key={it.key}
+              onClick={() => setActive(it.key)}
+              className="flex items-center gap-3 px-3 rounded-xl text-sm font-medium transition-colors"
+              style={{
+                minHeight: 44,
+                background: isActive ? C.primaryLight : "transparent",
+                color: isActive ? C.primary : C.sub,
+              }}
+            >
+              <it.icon size={18} />
+              {it.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="p-3" style={{ borderTop: `1px solid ${C.border}` }}>
+        <div className="flex items-center gap-3 px-2 py-2">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: C.primary }}>T</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: C.text }}>Trevor Simon</p>
+            <p className="text-xs truncate" style={{ color: C.sub }}>Founder & CEO</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Topbar ----------
+function Topbar() {
+  return (
+    <div className="h-16 flex items-center justify-between px-6 flex-shrink-0" style={{ borderBottom: `1px solid ${C.border}`, background: "#fff" }}>
+      <div>
+        <h1 className="text-lg font-bold" style={{ color: C.text }}>Dashboard</h1>
+        <p className="text-xs" style={{ color: C.sub }}>Komo Ridge Estate · Friday, Jul 3</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-2 px-3 rounded-xl"
+          style={{ background: C.section, height: 40, width: 260 }}
+        >
+          <Search size={16} color={C.faint} />
+          <input
+            placeholder="Search orders, customers..."
+            className="bg-transparent outline-none text-sm flex-1"
+            style={{ color: C.text }}
+          />
+        </div>
+        <button className="w-10 h-10 rounded-xl flex items-center justify-center relative" style={{ background: C.section }}>
+          <Bell size={18} color={C.text} />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: C.error }} />
+        </button>
+        <button
+          className="flex items-center gap-2 px-4 rounded-xl text-white text-sm font-semibold"
+          style={{ background: C.primary, height: 40 }}
+        >
+          <Plus size={16} /> New Order
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Chart card ----------
+function RevenueChart() {
+  return (
+    <Card className="p-5 flex-1 min-w-[400px]">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: C.text }}>Revenue this week</h3>
+          <p className="text-xs" style={{ color: C.sub }}>KES, Mon–Sun</p>
+        </div>
+        <button className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg" style={{ background: C.section, color: C.sub }}>
+          7 days <ChevronDown size={12} />
+        </button>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={revenueData} margin={{ left: -20, top: 5, right: 5 }}>
+          <defs>
+            <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={C.primary} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={C.primary} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={C.border} />
+          <XAxis dataKey="day" tick={{ fontSize: 12, fill: C.sub }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 12, fill: C.sub }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} />
+          <Tooltip
+            contentStyle={{ borderRadius: 12, border: `1px solid ${C.border}`, fontSize: 12 }}
+            formatter={(v) => [`KES ${v.toLocaleString()}`, "Revenue"]}
+          />
+          <Area type="monotone" dataKey="revenue" stroke={C.primary} strokeWidth={2.5} fill="url(#rev)" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
+function OrdersChart() {
+  return (
+    <Card className="p-5 flex-1 min-w-[300px]">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold" style={{ color: C.text }}>Orders by day</h3>
+        <p className="text-xs" style={{ color: C.sub }}>This week</p>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={revenueData} margin={{ left: -20, top: 5, right: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={C.border} />
+          <XAxis dataKey="day" tick={{ fontSize: 12, fill: C.sub }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 12, fill: C.sub }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ borderRadius: 12, border: `1px solid ${C.border}`, fontSize: 12 }} />
+          <Bar dataKey="orders" fill={C.blue} radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
+// ---------- Activity feed ----------
+function ActivityFeed() {
+  return (
+    <Card className="p-5">
+      <h3 className="text-sm font-semibold mb-4" style={{ color: C.text }}>Live activity</h3>
+      <div className="flex flex-col gap-4">
+        {activityFeed.map((a, i) => (
+          <div key={i} className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: a.color + "1A" }}>
+              <a.icon size={14} color={a.color} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm" style={{ color: C.text }}>{a.text}</p>
+              <p className="text-xs mt-0.5" style={{ color: C.faint }}>{a.time}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ---------- AI insights panel ----------
+function AiInsights() {
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: C.primaryLight }}>
+          <Sparkles size={14} color={C.primary} />
+        </div>
+        <h3 className="text-sm font-semibold" style={{ color: C.text }}>AI Insights</h3>
+      </div>
+      <div className="flex flex-col gap-3">
+        {aiInsights.map((ins, i) => {
+          const t = insightTone[ins.tone];
+          return (
+            <div key={i} className="p-3 rounded-xl" style={{ background: C.section }}>
+              <p className="text-xs font-semibold mb-1" style={{ color: t.fg }}>{ins.title}</p>
+              <p className="text-xs leading-relaxed" style={{ color: C.sub }}>{ins.body}</p>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+// ---------- Quick actions ----------
+function QuickActions() {
+  const actions = [
+    { label: "New Order", icon: Plus, color: C.primary },
+    { label: "Add Driver", icon: Truck, color: C.blue },
+    { label: "Send Promo", icon: Megaphone, color: C.warning },
+    { label: "View Reports", icon: BarChart3, color: C.info },
+  ];
+  return (
+    <Card className="p-5">
+      <h3 className="text-sm font-semibold mb-4" style={{ color: C.text }}>Quick actions</h3>
+      <div className="grid grid-cols-2 gap-3">
+        {actions.map((a) => (
+          <button
+            key={a.label}
+            className="flex flex-col items-center gap-2 py-4 rounded-xl transition-transform active:scale-95"
+            style={{ background: C.section, minHeight: 44 }}
+          >
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: a.color + "1A" }}>
+              <a.icon size={16} color={a.color} />
+            </div>
+            <span className="text-xs font-medium" style={{ color: C.text }}>{a.label}</span>
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ---------- Orders table ----------
+function OrdersTable() {
+  return (
+    <Card className="p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold" style={{ color: C.text }}>Recent orders</h3>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg" style={{ background: C.section, color: C.sub }}>
+            <Filter size={12} /> Filter
+          </button>
+          <button className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ background: C.primaryLight, color: C.primary }}>
+            View all
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+              {["Order", "Customer", "Service", "Amount", "Status", "Time", ""].map((h) => (
+                <th key={h} className="text-left py-2.5 px-2 font-medium text-xs" style={{ color: C.faint }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {recentOrders.map((o) => (
+              <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                <td className="py-3 px-2 font-semibold" style={{ color: C.text }}>{o.id}</td>
+                <td className="py-3 px-2" style={{ color: C.text }}>{o.customer}</td>
+                <td className="py-3 px-2" style={{ color: C.sub }}>{o.service}</td>
+                <td className="py-3 px-2 font-medium" style={{ color: C.text }}>KES {o.amount.toLocaleString()}</td>
+                <td className="py-3 px-2"><StatusBadge status={o.status} /></td>
+                <td className="py-3 px-2 text-xs" style={{ color: C.faint }}>{o.time}</td>
+                <td className="py-3 px-2">
+                  <button className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: C.section }}>
+                    <MoreVertical size={14} color={C.sub} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+// ---------- Main dashboard content ----------
+function DashboardContent() {
+  return (
+    <div className="p-6 flex flex-col gap-5">
+      {/* KPI row */}
+      <div className="flex flex-wrap gap-4">
+        <KpiCard label="Revenue (7d)" value="KES 160,900" delta="+18.2%" positive icon={DollarSign} accent={C.primary} />
+        <KpiCard label="Orders (7d)" value="193" delta="+11.4%" positive icon={ShoppingBag} accent={C.blue} />
+        <KpiCard label="Net Profit" value="KES 48,300" delta="+6.7%" positive icon={TrendingUp} accent={C.success} />
+        <KpiCard label="Active Customers" value="86" delta="-2.1%" positive={false} icon={Users} accent={C.warning} />
+      </div>
+
+      {/* Charts row */}
+      <div className="flex gap-5 flex-wrap">
+        <RevenueChart />
+        <OrdersChart />
+      </div>
+
+      {/* Table + side panels */}
+      <div className="flex gap-5 items-start flex-wrap">
+        <div className="flex-1 min-w-[500px] flex flex-col gap-5">
+          <OrdersTable />
+        </div>
+        <div className="w-[320px] flex flex-col gap-5">
+          <AiInsights />
+          <ActivityFeed />
+          <QuickActions />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- App shell ----------
+export default function EcoCleanersAdminDashboard() {
+  const [active, setActive] = useState("dashboard");
+
+  return (
+    <div
+      className="w-full h-screen flex"
+      style={{ background: C.section, fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif" }}
+    >
+      <Sidebar active={active} setActive={setActive} />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Topbar />
+        <div className="flex-1 overflow-y-auto">
+          {active === "dashboard" ? (
+            <DashboardContent />
+          ) : (
+            <div className="p-10 flex flex-col items-center justify-center text-center" style={{ minHeight: 400 }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: C.primaryLight }}>
+                <Clock size={24} color={C.primary} />
+              </div>
+              <p className="text-sm font-semibold" style={{ color: C.text }}>
+                {active.charAt(0).toUpperCase() + active.slice(1)} coming soon
+              </p>
+              <p className="text-xs mt-1" style={{ color: C.sub }}>This section isn't built yet in the prototype.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

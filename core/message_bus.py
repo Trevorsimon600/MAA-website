@@ -1,0 +1,45 @@
+from typing import List, Dict, Optional
+from datetime import datetime
+import uuid
+
+class Message:
+    def __init__(self, sender: str, receiver: str, content: str, msg_type: str = "info"):
+        self.id = str(uuid.uuid4())[:8]
+        self.sender = sender
+        self.receiver = receiver
+        self.content = content
+        self.msg_type = msg_type          # info | request | result | warning
+        self.timestamp = datetime.now().isoformat()
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "sender": self.sender,
+            "receiver": self.receiver,
+            "content": self.content,
+            "type": self.msg_type,
+            "timestamp": self.timestamp
+        }
+
+    def __str__(self):
+        return f"[{self.timestamp[11:19]}] {self.sender} → {self.receiver}: {self.content[:80]}"
+
+
+class MessageBus:
+    def __init__(self):
+        self.messages: List[Message] = []
+
+    def send(self, sender: str, receiver: str, content: str, msg_type: str = "info") -> Message:
+        msg = Message(sender, receiver, content, msg_type)
+        self.messages.append(msg)
+        print(f"   📨 {sender} → {receiver}: {content[:60]}...")
+        return msg
+
+    def get_messages_for(self, agent_name: str) -> List[Message]:
+        return [m for m in self.messages if m.receiver == agent_name or m.receiver == "ALL"]
+
+    def get_conversation(self) -> List[str]:
+        return [str(m) for m in self.messages]
+
+    def clear(self):
+        self.messages = []

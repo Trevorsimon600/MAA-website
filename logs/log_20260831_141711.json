@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2026-08-31T14:17:11.576026",
+    "agent": "SYSTEM",
+    "level": "INFO",
+    "message": "Run started | Objective: analyze this orders.csv"
+  },
+  {
+    "timestamp": "2026-08-31T14:17:35.563670",
+    "agent": "Verifier",
+    "level": "INFO",
+    "message": "Finished task: Verify Final Answer"
+  },
+  {
+    "timestamp": "2026-08-31T14:18:01.936330",
+    "agent": "EVALUATOR",
+    "level": "SCORE",
+    "message": "Quality Score: 5/10"
+  },
+  {
+    "timestamp": "2026-08-31T14:18:01.936464",
+    "agent": "SYSTEM",
+    "level": "INFO",
+    "message": "Run finished"
+  }
+]

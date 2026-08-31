@@ -1,0 +1,48 @@
+{
+  "projects": [
+    {
+      "id": "d39933e2",
+      "name": "Multi-Agent Research",
+      "goal": "Understand advantages and challenges of multi-agent systems",
+      "status": "active",
+      "created_at": "2026-08-29T17:35:37.808291",
+      "updated_at": "2026-08-29T17:35:37.808291",
+      "run_ids": [],
+      "notes": []
+    },
+    {
+      "id": "31fea367",
+      "name": "Testing",
+      "goal": "test full capabilities",
+      "status": "active",
+      "created_at": "2026-08-29T23:02:24.750813",
+      "updated_at": "2026-08-29T23:03:17.274822",
+      "run_ids": [
+        "run_20260829_230317"
+      ],
+      "notes": []
+    },
+    {
+      "id": "77db27c6",
+      "name": "Opportunity project",
+      "goal": "Search for billion shilling problems to solve",
+      "status": "active",
+      "created_at": "2026-08-31T11:53:04.465779",
+      "updated_at": "2026-08-31T11:53:04.465779",
+      "run_ids": [],
+      "notes": []
+    },
+    {
+      "id": "3f835eb2",
+      "name": "Opportunity project",
+      "goal": "Search for billion shilling problems to solve",
+      "status": "active",
+      "created_at": "2026-08-31T11:53:09.296944",
+      "updated_at": "2026-08-31T11:56:09.961985",
+      "run_ids": [
+        "run_20260831_115609"
+      ],
+      "notes": []
+    }
+  ]
+}

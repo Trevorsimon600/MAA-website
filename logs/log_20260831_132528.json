@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2026-08-31T13:25:28.763802",
+    "agent": "SYSTEM",
+    "level": "INFO",
+    "message": "Run started | Objective: What are the main benefits of multi-agent AI systems?"
+  },
+  {
+    "timestamp": "2026-08-31T13:25:53.702746",
+    "agent": "Verifier",
+    "level": "INFO",
+    "message": "Finished task: Verify Final Answer"
+  },
+  {
+    "timestamp": "2026-08-31T13:26:19.395135",
+    "agent": "EVALUATOR",
+    "level": "SCORE",
+    "message": "Quality Score: 7/10"
+  },
+  {
+    "timestamp": "2026-08-31T13:26:19.395297",
+    "agent": "SYSTEM",
+    "level": "INFO",
+    "message": "Run finished"
+  }
+]
