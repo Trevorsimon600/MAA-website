@@ -6,3 +6,4 @@ rich
 streamlit
 openai
 ddgs
+beautifulsoup4
