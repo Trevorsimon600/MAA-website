@@ -3,3 +3,5 @@ groq
 httpx
 pydantic
 rich
+streamlit
+openai
