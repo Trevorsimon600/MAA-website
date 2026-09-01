@@ -13,8 +13,8 @@ from typing import Optional, Dict, Any
 class OrchestratorV2:
     """
     Dynamic Orchestrator for MAA v0.2.
-    Supports dynamic agent scheduling, inter-agent collaboration messages,
-    universal tool execution, and persistent RunState.
+    Supports uninhibited dynamic agent scheduling, inter-agent collaboration messages,
+    universal tool execution, step count telemetry, and estimated token tracking.
     """
 
     def __init__(self, agent_registry: AgentRegistry, tool_registry: ToolRegistry, file_manager=None):
@@ -38,6 +38,7 @@ class OrchestratorV2:
         use_memory: bool = False
     ) -> str:
         agent = self.agents.get(agent_name)
+        tokens_before = getattr(agent, "total_tokens_estimated", 0)
 
         task = self.task_manager.create_task(
             title=task_title,
@@ -50,20 +51,17 @@ class OrchestratorV2:
         # ========== Build context ==========
         context_parts = []
 
-        # Memory
         if use_memory:
             relevant = self.memory.retrieve_relevant_knowledge(objective, max_results=3)
             recent = self.memory.get_memory_summary(max_runs=3)
             if relevant or recent:
                 context_parts.append(f"Relevant past knowledge:\n{relevant}\n\nRecent runs:\n{recent}")
 
-        # Inter-Agent Messages
         messages = self.message_bus.get_messages_for(agent_name)
         if messages:
             msg_text = "\n".join([str(m) for m in messages[-5:]])
             context_parts.append(f"Messages from team:\n{msg_text}")
 
-        # Available files
         if self.files:
             file_context = self.files.get_file_info()
             if file_context:
@@ -84,29 +82,32 @@ class OrchestratorV2:
         task.complete(result)
         self.logger.log(agent_name, f"Completed: {task_title}")
 
+        tokens_after = getattr(agent, "total_tokens_estimated", 0)
+        tokens_used = max(0, tokens_after - tokens_before)
+
         # Record step in RunState
         if run_state:
             step_num = len(run_state.steps) + 1
-            run_state.add_step(step_num, agent_name, task_title, prompt, result)
+            run_state.add_step(step_num, agent_name, task_title, prompt, result, tokens_est=tokens_used)
             run_state.save()
 
         # Send result notification across MessageBus
         self.message_bus.send(
             sender=agent_name,
             receiver="ALL",
-            content=f"Finished '{task_title}'. Output summary: {result[:120]}...",
+            content=f"Finished '{task_title}'. Summary: {result[:120]}...",
             msg_type="result"
         )
 
-        print(f"\n{agent_name} output:")
+        print(f"\n{agent_name} output ({tokens_used} est. tokens):")
         print(result[:1200] + ("..." if len(result) > 1200 else ""))
         print("-" * 50)
 
         return result
 
-    def run(self, objective: str, project_id: str = None, max_steps: int = 6) -> Dict[str, Any]:
+    def run(self, objective: str, project_id: str = None, max_steps: int = 15) -> Dict[str, Any]:
         print("\n" + "=" * 60)
-        print(f"🧠 MAA {Settings.VERSION} (Dynamic Orchestration)")
+        print(f"🧠 MAA {Settings.VERSION} (Autonomous Dynamic Mesh)")
         print("=" * 60)
         print(f"Objective: {objective}\n")
 
@@ -114,22 +115,19 @@ class OrchestratorV2:
         run_state = RunState(objective=objective, project_id=project_id)
 
         # Project Context
-        project_context = ""
         if project_id:
             project = self.project_manager.get_project(project_id)
             if project:
-                project_context = project.get_context()
                 print(f"📁 Project Context Loaded: {project.name}")
 
         coordinator = self.agents.get("Coordinator")
 
-        # Dynamic loop execution
+        # Dynamic loop execution without artificial inhibitors
         step_count = 0
 
         while step_count < max_steps:
             step_count += 1
 
-            # Let Coordinator decide the next action based on current state
             decision = coordinator.decide_next_action(
                 objective=objective,
                 steps_taken=run_state.steps,
@@ -141,11 +139,10 @@ class OrchestratorV2:
             task_title = decision.get("task_title", f"Dynamic Step {step_count}")
             instructions = decision.get("instructions", objective)
 
-            if status == "COMPLETE" or next_agent == "Coordinator" and step_count > 1:
-                print("\n🎯 Coordinator concluded the dynamic execution graph.")
+            if status == "COMPLETE" or (next_agent == "Coordinator" and step_count > 1):
+                print("\n🎯 Coordinator concluded the dynamic execution mesh.")
                 break
 
-            # Execute decided agent step
             self._run_agent(
                 agent_name=next_agent,
                 prompt=instructions,
@@ -168,8 +165,7 @@ class OrchestratorV2:
         verifier = self.agents.get("Verifier")
         verification = verifier.think(f"Objective: {objective}\nFinal Answer:\n{final_summary}")
         
-        # Evaluate run
-        print("\n→ Evaluating execution score...")
+        print("\n→ Evaluating execution quality...")
         evaluation = self.evaluator.evaluate(objective, final_summary, verification)
         score = evaluation.get("score", 8.0)
         print(f"   Quality Score: {score}/10")
@@ -177,13 +173,15 @@ class OrchestratorV2:
         run_state.mark_completed(final_summary, quality_score=score)
         run_state.save()
 
-        # Save to memory and project
+        # Build telemetry results
         results = {
             "run_id": run_state.run_id,
             "objective": objective,
             "final": final_summary,
             "verification": verification,
             "evaluation": evaluation,
+            "total_steps": len(run_state.steps),
+            "total_tokens_estimated": run_state.total_tokens_estimated,
             "steps": run_state.steps,
             "messages": run_state.messages,
             "tasks": self.task_manager.get_all_tasks()
@@ -194,6 +192,7 @@ class OrchestratorV2:
             self.project_manager.add_run_to_project(project_id, run_state.run_id)
 
         self.logger.end_run(score)
+        print(f"\n⚡ Total Steps Executed: {len(run_state.steps)} | Total Estimated Tokens: {run_state.total_tokens_estimated}")
         print("\n" + self.task_manager.summary())
         return results
 

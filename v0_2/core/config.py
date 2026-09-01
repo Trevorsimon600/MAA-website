@@ -9,7 +9,7 @@ def get_secret(name: str, default: str = "") -> str:
     """
     Get configuration from:
     1. Environment variables / local .env
-    2. Streamlit Cloud Secrets
+    2. Streamlit Secrets
     """
 
     # First try environment variables
@@ -40,11 +40,17 @@ class Settings:
     GROQ_API_KEY: str = get_secret("GROQ_API_KEY")
     OPENAI_API_KEY: str = get_secret("OPENAI_API_KEY")
 
-    # Model settings
+    # Model settings - Verified available Groq models
     DEFAULT_MODEL: str = get_secret(
         "DEFAULT_MODEL",
         "openai/gpt-oss-20b"
     )
+
+    FALLBACK_MODELS: list = [
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.6-27b"
+    ]
 
     TEMPERATURE: float = float(
         get_secret("TEMPERATURE", "0.3")

@@ -6,7 +6,7 @@ from datetime import datetime
 class RunState:
     """
     Manages and persists the state of an MAA run.
-    Supports pausing, resuming, and inspection.
+    Supports step metrics, estimated tokens, pausing, resuming, and inspection.
     """
 
     def __init__(self, run_id: Optional[str] = None, objective: str = "", project_id: Optional[str] = None):
@@ -22,8 +22,18 @@ class RunState:
         self.messages: List[Dict[str, Any]] = []
         self.quality_score: Optional[float] = None
         self.final_answer: str = ""
+        self.total_tokens_estimated: int = 0
 
-    def add_step(self, step_number: int, agent_name: str, task_title: str, prompt: str, output: str, status: str = "completed"):
+    def add_step(
+        self,
+        step_number: int,
+        agent_name: str,
+        task_title: str,
+        prompt: str,
+        output: str,
+        status: str = "completed",
+        tokens_est: int = 0
+    ):
         step_data = {
             "step_number": step_number,
             "agent_name": agent_name,
@@ -31,10 +41,12 @@ class RunState:
             "prompt": prompt,
             "output": output,
             "status": status,
+            "tokens_est": tokens_est,
             "timestamp": datetime.now().isoformat()
         }
         self.steps.append(step_data)
         self.agent_outputs[agent_name] = output
+        self.total_tokens_estimated += tokens_est
         self.updated_at = datetime.now().isoformat()
 
     def record_message(self, sender: str, receiver: str, content: str, msg_type: str = "info"):
@@ -61,6 +73,8 @@ class RunState:
             "status": self.status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "total_steps": len(self.steps),
+            "total_tokens_estimated": self.total_tokens_estimated,
             "steps": self.steps,
             "agent_outputs": self.agent_outputs,
             "messages": self.messages,
@@ -95,6 +109,7 @@ class RunState:
             state.status = data.get("status", "completed")
             state.created_at = data.get("created_at", datetime.now().isoformat())
             state.updated_at = data.get("updated_at", datetime.now().isoformat())
+            state.total_tokens_estimated = data.get("total_tokens_estimated", 0)
             state.steps = data.get("steps", [])
             state.agent_outputs = data.get("agent_outputs", {})
             state.messages = data.get("messages", [])
@@ -104,4 +119,3 @@ class RunState:
         except Exception as e:
             print(f"Error loading run state for {run_id}: {e}")
             return None
-

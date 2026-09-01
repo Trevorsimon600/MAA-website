@@ -48,3 +48,6 @@ class Settings:
                 "Add GROQ_API_KEY or OPENAI_API_KEY "
                 "to .env or Streamlit Secrets."
             )
+
+# Alias Config for backwards compatibility
+Config = Settings
