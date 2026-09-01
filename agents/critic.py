@@ -1,7 +1,7 @@
 from core.agent import Agent
 
 class Critic(Agent):
-    def __init__(self):
+    def __init__(self, tool_registry=None):
         super().__init__(
             name="Critic",
             role="Critical Analyst & Quality Controller",
@@ -19,6 +19,6 @@ You must always give a structured critique.
 Even if the work is good, you still point out at least 2–3 possible improvements or limitations.
 
 Never return an empty response.
-Always end with a short overall judgment (e.g. "Solid foundation with some gaps" or "Needs significant improvement")."""
+Always end with a short overall judgment (e.g. "Solid foundation with some gaps" or "Needs significant improvement").""",
+            tool_registry=tool_registry
         )
-    

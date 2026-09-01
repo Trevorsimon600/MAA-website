@@ -1,0 +1,33 @@
+{
+  "run_id": "run_20260901_183729",
+  "objective": "Test objective",
+  "project_id": null,
+  "status": "in_progress",
+  "created_at": "2026-09-01T18:37:29.681114",
+  "updated_at": "2026-09-01T18:37:29.681141",
+  "steps": [
+    {
+      "step_number": 1,
+      "agent_name": "Researcher",
+      "task_title": "Search topic",
+      "prompt": "prompt",
+      "output": "result output",
+      "status": "completed",
+      "timestamp": "2026-09-01T18:37:29.681129"
+    }
+  ],
+  "agent_outputs": {
+    "Researcher": "result output"
+  },
+  "messages": [
+    {
+      "sender": "Researcher",
+      "receiver": "ALL",
+      "content": "Done research",
+      "type": "result",
+      "timestamp": "2026-09-01T18:37:29.681138"
+    }
+  ],
+  "quality_score": null,
+  "final_answer": ""
+}

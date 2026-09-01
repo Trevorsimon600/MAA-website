@@ -1,7 +1,7 @@
 from core.agent import Agent
 
 class Planner(Agent):
-    def __init__(self):
+    def __init__(self, tool_registry=None):
         super().__init__(
             name="Planner",
             role="Strategic Planner",
@@ -15,5 +15,6 @@ Rules:
 - Recommend which type of specialist should handle each step
 - Keep plans practical and focused
 - Highlight risks and assumptions
-"""
+""",
+            tool_registry=tool_registry
         )

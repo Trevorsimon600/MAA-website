@@ -1,7 +1,7 @@
 from core.agent import Agent
 
 class Analyst(Agent):
-    def __init__(self):
+    def __init__(self, tool_registry=None):
         super().__init__(
             name="Analyst",
             role="Deep Analyst",
@@ -15,5 +15,6 @@ Rules:
 - Highlight trade-offs
 - Be precise and evidence-oriented
 - Structure your output with headings and bullet points
-"""
+""",
+            tool_registry=tool_registry
         )

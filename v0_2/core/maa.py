@@ -3,6 +3,7 @@ from v0_2.core.registry import AgentRegistry
 from v0_2.core.tool_registry import ToolRegistry
 from v0_2.core.orchestrator import OrchestratorV2
 from v0_2.core.file_manager import FileManager
+from v0_2.core.run_state import RunState
 from core.project import ProjectManager
 from memory.simple_memory import SimpleMemory
 
@@ -18,7 +19,7 @@ from agents.archivist import Archivist
 
 class MAA:
     """
-    MAA v0.2 - Mega Agent Association
+    MAA v0.2 - Mega Agent Association (Phase 1 Upgraded)
     """
 
     def __init__(self):
@@ -31,7 +32,7 @@ class MAA:
         self.files = FileManager()
         self.project_manager = ProjectManager()
 
-        # Register ALL agents
+        # Register ALL agents with universal tool access
         self._register_agents()
 
         # Create orchestrator after agents are registered
@@ -42,19 +43,25 @@ class MAA:
         )
 
     def _register_agents(self):
-        self.registry.register("Coordinator", Coordinator())
-        self.registry.register("Planner", Planner())
+        self.registry.register("Coordinator", Coordinator(tool_registry=self.tools))
+        self.registry.register("Planner", Planner(tool_registry=self.tools))
         self.registry.register("Researcher", Researcher(tool_registry=self.tools))
-        self.registry.register("Critic", Critic())
-        self.registry.register("Verifier", Verifier())
-        self.registry.register("Analyst", Analyst())
-        self.registry.register("Writer", Writer())
-        self.registry.register("Archivist", Archivist())
+        self.registry.register("Critic", Critic(tool_registry=self.tools))
+        self.registry.register("Verifier", Verifier(tool_registry=self.tools))
+        self.registry.register("Analyst", Analyst(tool_registry=self.tools))
+        self.registry.register("Writer", Writer(tool_registry=self.tools))
+        self.registry.register("Archivist", Archivist(tool_registry=self.tools))
 
-    def run(self, objective: str, project_id: str = None):
+    def run(self, objective: str, project_id: str = None, max_steps: int = 6):
         print(f"\n🧠 MAA {self.version}")
         print("=" * 60)
-        return self.orchestrator.run(objective, project_id=project_id)
+        return self.orchestrator.run(objective, project_id=project_id, max_steps=max_steps)
+
+    def resume_run(self, run_id: str):
+        return self.orchestrator.resume_run(run_id)
+
+    def get_run_state(self, run_id: str):
+        return RunState.load(run_id)
 
     def status(self) -> dict:
         return {

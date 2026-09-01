@@ -1,7 +1,7 @@
 from core.agent import Agent
 
 class Writer(Agent):
-    def __init__(self):
+    def __init__(self, tool_registry=None):
         super().__init__(
             name="Writer",
             role="Technical Writer",
@@ -15,5 +15,6 @@ Rules:
 - Remove unnecessary complexity
 - Make the content easy to understand
 - Preserve important technical accuracy
-"""
+""",
+            tool_registry=tool_registry
         )

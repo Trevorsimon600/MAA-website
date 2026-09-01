@@ -14,6 +14,18 @@ class SimpleMemory:
             with open(self.knowledge_file, "w", encoding="utf-8") as f:
                 json.dump({"entries": []}, f, indent=2)
 
+    def load_knowledge_base(self) -> List[Dict[str, Any]]:
+        """Load and return all entries from the knowledge base file."""
+        try:
+            if not os.path.exists(self.knowledge_file):
+                return []
+            with open(self.knowledge_file, "r", encoding="utf-8") as f:
+                kb = json.load(f)
+            return kb.get("entries", [])
+        except Exception as e:
+            print(f"Error loading knowledge base: {e}")
+            return []
+
     def save_run(self, objective: str, results: Dict[str, Any]) -> str:
         """Save a complete MAA run + extract key knowledge."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -54,22 +66,16 @@ class SimpleMemory:
     def _extract_keywords(self, text: str) -> list:
         """Very simple keyword extraction."""
         words = text.lower().split()
-        # Keep reasonably meaningful words
         stopwords = {"the", "and", "for", "with", "that", "this", "from", "are", "was", "were", "what", "when", "your", "into", "about"}
         keywords = [w.strip(".,()[]") for w in words if len(w) > 4 and w not in stopwords]
-        # Return unique keywords (max 8)
         return list(dict.fromkeys(keywords))[:8]
 
     def _add_to_knowledge_base(self, objective: str, final_answer: str):
         """Store a clean summary of important findings."""
         try:
-            with open(self.knowledge_file, "r", encoding="utf-8") as f:
-                kb = json.load(f)
+            kb_entries = self.load_knowledge_base()
 
-            # Create a shorter, cleaner summary
             summary = final_answer[:500].strip() if final_answer else "No summary available"
-            
-            # Remove excessive whitespace
             summary = " ".join(summary.split())
 
             entry = {
@@ -79,11 +85,11 @@ class SimpleMemory:
                 "keywords": self._extract_keywords(objective + " " + summary)
             }
 
-            kb["entries"].append(entry)
-            kb["entries"] = kb["entries"][-60:]  # Keep last 60 entries
+            kb_entries.append(entry)
+            kb_entries = kb_entries[-60:]  # Keep last 60 entries
 
             with open(self.knowledge_file, "w", encoding="utf-8") as f:
-                json.dump(kb, f, indent=2, ensure_ascii=False)
+                json.dump({"entries": kb_entries}, f, indent=2, ensure_ascii=False)
 
         except Exception as e:
             print(f"⚠️  Could not update knowledge base: {e}")
@@ -136,33 +142,25 @@ class SimpleMemory:
 
     def get_knowledge_summary(self, max_entries: int = 6) -> str:
         """Return recent knowledge base entries in a clean format."""
-        try:
-            with open(self.knowledge_file, "r", encoding="utf-8") as f:
-                kb = json.load(f)
+        entries = self.load_knowledge_base()[-max_entries:]
+        if not entries:
+            return "Knowledge base is empty."
 
-            entries = kb.get("entries", [])[-max_entries:]
-            if not entries:
-                return "Knowledge base is empty."
-
-            lines = ["Relevant knowledge from previous MAA work:"]
-            for e in reversed(entries):
-                obj = e.get("objective", "Unknown")
-                summary = e.get("summary", "")[:180]
-                lines.append(f"- {obj}\n  → {summary}...")
-            return "\n".join(lines)
-        except Exception:
-            return "Could not load knowledge base."
+        lines = ["Relevant knowledge from previous MAA work:"]
+        for e in reversed(entries):
+            obj = e.get("objective", "Unknown")
+            summary = e.get("summary", "")[:180]
+            lines.append(f"- {obj}\n  → {summary}...")
+        return "\n".join(lines)
         
     def retrieve_relevant_knowledge(self, query: str, max_results: int = 4) -> str:
         """Retrieve knowledge entries related to a query (simple keyword matching)."""
         try:
-            with open(self.knowledge_file, "r", encoding="utf-8") as f:
-                kb = json.load(f)
-
+            entries = self.load_knowledge_base()
             query_words = set(query.lower().split())
             scored = []
 
-            for entry in kb.get("entries", []):
+            for entry in entries:
                 text = (entry.get("objective", "") + " " + entry.get("summary", "")).lower()
                 score = sum(1 for word in query_words if word in text)
                 if score > 0:

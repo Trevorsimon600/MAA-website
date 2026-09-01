@@ -1,7 +1,7 @@
 from core.agent import Agent
 
 class Archivist(Agent):
-    def __init__(self):
+    def __init__(self, tool_registry=None):
         super().__init__(
             name="Archivist",
             role="Knowledge Archivist",
@@ -15,5 +15,6 @@ Rules:
 - Remove unnecessary noise
 - Make knowledge easy to reuse later
 - Be concise but complete
-"""
+""",
+            tool_registry=tool_registry
         )

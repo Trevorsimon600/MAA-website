@@ -1,7 +1,7 @@
 from core.agent import Agent
 
 class Verifier(Agent):
-    def __init__(self):
+    def __init__(self, tool_registry=None):
         super().__init__(
             name="Verifier",
             role="Quality Verifier",
@@ -16,5 +16,6 @@ You must answer these questions clearly:
 4. What is still missing or weak?
 5. Overall quality score (1-10) with a short justification.
 
-Be strict but fair. Always give a clear final judgment."""
+Be strict but fair. Always give a clear final judgment.""",
+            tool_registry=tool_registry
         )
