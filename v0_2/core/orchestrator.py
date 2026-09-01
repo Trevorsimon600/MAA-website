@@ -26,7 +26,6 @@ class OrchestratorV2:
         self.logger = MAALogger()
 
     def _run_agent(self, agent_name: str, prompt: str, task_title: str, objective: str, use_memory: bool = False) -> str:
-        self.logger.start_run(objective)
         agent = self.agents.get(agent_name)
 
         task = self.task_manager.create_task(
@@ -37,34 +36,34 @@ class OrchestratorV2:
         )
         task.start(agent_name)
 
-        # Build context
+        # ========== Build context ==========
         context_parts = []
 
+        # Memory
         if use_memory:
             relevant = self.memory.retrieve_relevant_knowledge(objective, max_results=3)
             recent = self.memory.get_memory_summary(max_runs=3)
             context_parts.append(f"Relevant past knowledge:\n{relevant}\n\nRecent runs:\n{recent}")
 
+        # Messages from other agents
         messages = self.message_bus.get_messages_for(agent_name)
         if messages:
             msg_text = "\n".join([str(m) for m in messages[-4:]])
             context_parts.append(f"Messages from other agents:\n{msg_text}")
 
+        # File awareness (IMPORTANT - must be before creating full_prompt)
+        if self.files:
+            file_context = self.files.get_file_info()
+            context_parts.append(f"Currently available files:\n{file_context}")
+
+        # Combine everything
         full_prompt = prompt
         if context_parts:
             full_prompt = "\n\n".join(context_parts) + "\n\n---\n\nCurrent task:\n" + prompt
 
         print(f"\n→ {agent_name} is working on: {task_title}")
-        
-        # Add file awareness
-        file_info = self.memory  # temporary placeholder – we will improve next
-        
-        # File awareness
-        if self.files:
-            file_context = self.files.get_file_info()
-            context_parts.append(f"File System Status:\n{file_context}")
 
-        # Special handling for Researcher (still uses its research method)
+        # Run the agent
         if agent_name == "Researcher" and hasattr(agent, "research"):
             result = agent.research(objective)
         else:
@@ -73,7 +72,7 @@ class OrchestratorV2:
         task.complete(result)
         self.logger.log(agent_name, f"Finished task: {task_title}")
 
-        # Send a message to other agents
+        # Notify other agents
         self.message_bus.send(
             sender=agent_name,
             receiver="ALL",
@@ -92,6 +91,8 @@ class OrchestratorV2:
         print(f"🧠 MAA {Settings.VERSION}")
         print("=" * 60)
         print(f"Objective: {objective}\n")
+        
+        self.logger.start_run(objective)
 
         # Project context
         project_context = ""

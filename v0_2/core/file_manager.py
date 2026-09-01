@@ -35,24 +35,35 @@ class FileManager:
             return f"Error reading file: {e}"
 
     def get_file_info(self) -> str:
-        """Return a summary of available files for agents."""
+        """Return a clear summary of available files for agents."""
         uploaded = self.list_uploaded_files()
         images = self.list_generated_images()
 
-        lines = ["Available files in MAA:"]
-        
-        if uploaded:
-            lines.append("\nUploaded files:")
-            for f in uploaded[:10]:
-                lines.append(f"- {f}")
+        lines = ["=== Available Files in MAA ==="]
+
+        text_files = [f for f in uploaded if f.lower().endswith((".txt", ".md", ".csv", ".json", ".pdf"))]
+        image_files = [f for f in uploaded if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))]
+
+        if text_files:
+            lines.append("\nText / Document files (can be read with the read_file tool):")
+            for f in text_files:
+                lines.append(f"  - {f}")
         else:
-            lines.append("\nNo uploaded files.")
+            lines.append("\nNo text/document files uploaded.")
+
+        if image_files:
+            lines.append("\nUploaded images:")
+            for f in image_files:
+                lines.append(f"  - {f}")
+        else:
+            lines.append("\nNo images uploaded.")
 
         if images:
             lines.append("\nGenerated images:")
             for img in images[:8]:
-                lines.append(f"- {img}")
+                lines.append(f"  - {img}")
         else:
-            lines.append("\nNo generated images.")
+            lines.append("\nNo generated images yet.")
 
+        lines.append("\nNote: Use the 'read_file' tool to read text or PDF files by their exact filename.")
         return "\n".join(lines)

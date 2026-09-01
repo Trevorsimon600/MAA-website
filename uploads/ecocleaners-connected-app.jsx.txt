@@ -1,0 +1,958 @@
+import React, { useState } from "react";
+import {
+  Home, Package, Plus, Bell, User, ChevronRight, ChevronLeft, Shirt, Droplets,
+  Wind, Truck, CheckCircle2, MapPin, Clock, CreditCard, Star, Sparkles, Calendar,
+  LayoutDashboard, Users, Wrench, Tag, Megaphone, BarChart3, Settings, Search,
+  ChevronDown, TrendingUp, DollarSign, ShoppingBag, UserPlus, ArrowUpRight,
+  ArrowDownRight, Filter, MoreVertical, AlertTriangle, Briefcase, Map as MapIcon,
+  Phone, Navigation, RefreshCw,
+} from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area,
+} from "recharts";
+
+// ============================================================
+// DESIGN TOKENS (shared across all three UIs)
+// ============================================================
+const C = {
+  primary: "#10B981",
+  primaryLight: "#D1FAE5",
+  blue: "#3B82F6",
+  blueLight: "#DBEAFE",
+  bg: "#FFFFFF",
+  section: "#F3F4F6",
+  border: "#F3F4F6",
+  success: "#22C55E",
+  warning: "#F59E0B",
+  error: "#EF4444",
+  info: "#3B82F6",
+  text: "#111827",
+  sub: "#6B7280",
+  faint: "#9CA3AF",
+};
+
+const FONT = "ui-sans-serif, system-ui, -apple-system, sans-serif";
+
+// Stage meanings shared by all three roles:
+// 0 = booked, awaiting pickup | 1 = picked up | 2 = washing | 3 = folding | 4 = delivered
+const STAGES = [
+  { key: "pickup", label: "Picked Up", icon: Package },
+  { key: "wash", label: "Washing", icon: Droplets },
+  { key: "fold", label: "Folding", icon: Wind },
+  { key: "deliver", label: "Delivered", icon: Truck },
+];
+
+const services = [
+  { id: "wash-fold", name: "Wash & Fold", price: "KES 80/kg", amount: 650, icon: Shirt, desc: "Everyday laundry, folded neatly" },
+  { id: "dry-clean", name: "Dry Cleaning", price: "from KES 250", amount: 1200, icon: Sparkles, desc: "Suits, dresses & delicate fabrics" },
+  { id: "iron-only", name: "Iron Only", price: "KES 40/piece", amount: 320, icon: Wind, desc: "Pressed & crease-free" },
+];
+
+const timeSlots = ["8:00 – 10:00 AM", "10:00 AM – 12:00 PM", "2:00 – 4:00 PM", "4:00 – 6:00 PM"];
+
+// The logged-in customer persona for this demo — orders they place show up
+// identically for the admin and the driver.
+const CUSTOMER_NAME = "Amina Wanjiru";
+const CUSTOMER_PHONE = "+254 712 345 678";
+const CUSTOMER_ADDRESS = "House 14, Komo Ridge Estate, Nairobi";
+
+let orderSeq = 1043;
+
+function seedOrders() {
+  return [
+    { id: "EC-1042", customer: CUSTOMER_NAME, phone: CUSTOMER_PHONE, address: CUSTOMER_ADDRESS, serviceName: "Wash & Fold", serviceIcon: Shirt, items: 8, amount: 650, window: "2:00 – 4:00 PM", date: "Today", stage: 1 },
+    { id: "EC-1039", customer: "Brian Kiptoo", phone: "+254 733 221 990", address: "Apt 3B, Komo Ridge Court, Nairobi", serviceName: "Dry Clean", serviceIcon: Sparkles, items: 3, amount: 1200, window: "4:00 – 6:00 PM", date: "Today", stage: 3 },
+    { id: "EC-1035", customer: "Grace Njeri", phone: "+254 700 556 112", address: "House 7, Komo Ridge Estate, Nairobi", serviceName: "Iron Only", serviceIcon: Wind, items: 5, amount: 320, window: "10:00 AM – 12:00 PM", date: "Jun 29", stage: 4 },
+    { id: "EC-1030", customer: CUSTOMER_NAME, phone: CUSTOMER_PHONE, address: CUSTOMER_ADDRESS, serviceName: "Wash & Fold", serviceIcon: Shirt, items: 12, amount: 900, window: "10:00 AM – 12:00 PM", date: "Jun 24", stage: 4 },
+  ];
+}
+
+function stageStatus(stage) {
+  if (stage >= 4) return "completed";
+  if (stage === 0) return "pending";
+  return "progress";
+}
+
+function StatusBadge({ stage }) {
+  const map = {
+    pending: { bg: "#FEF3C7", fg: C.warning, label: "Awaiting Pickup" },
+    progress: { bg: "#DBEAFE", fg: C.info, label: STAGES[stage - 1]?.label || "In Progress" },
+    completed: { bg: "#DCFCE7", fg: C.success, label: "Delivered" },
+  };
+  const s = map[stageStatus(stage)];
+  return (
+    <span className="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap" style={{ background: s.bg, color: s.fg }}>
+      {s.label}
+    </span>
+  );
+}
+
+function Card({ children, className = "", onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-2xl border border-gray-100 ${className}`}
+      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PrimaryButton({ children, onClick, className = "", disabled, color }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full rounded-2xl font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-40 ${className}`}
+      style={{ background: disabled ? "#D1D5DB" : color || C.primary, minHeight: 52 }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SecondaryButton({ children, onClick, className = "" }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full rounded-2xl font-semibold transition-all active:scale-[0.98] ${className}`}
+      style={{ background: C.section, color: C.text, minHeight: 52 }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MiniTimeline({ stage }) {
+  return (
+    <div className="flex items-center">
+      {STAGES.map((s, i) => (
+        <React.Fragment key={s.key}>
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: i < stage ? C.primary : C.section, transition: "background 0.3s" }}
+          >
+            <s.icon size={12} color={i < stage ? "#fff" : C.sub} />
+          </div>
+          {i < STAGES.length - 1 && (
+            <div className="flex-1 h-1 mx-1 rounded-full" style={{ background: i < stage - 1 ? C.primary : C.section, transition: "background 0.3s" }} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// CUSTOMER APP
+// ============================================================
+function CustomerHome({ orders, goBook, openOrder }) {
+  const mine = orders.filter((o) => o.customer === CUSTOMER_NAME);
+  const active = mine.find((o) => o.stage > 0 && o.stage < 4);
+  const recent = mine.filter((o) => o.id !== active?.id).slice(0, 3);
+
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2 flex items-center justify-between">
+        <div>
+          <p className="text-sm" style={{ color: C.sub }}>Good afternoon,</p>
+          <h1 className="text-2xl font-bold" style={{ color: C.text, letterSpacing: "-0.02em" }}>Amina 👋</h1>
+        </div>
+        <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: C.section }}>
+          <Bell size={20} color={C.text} />
+        </div>
+      </div>
+
+      {active && (
+        <div className="px-5 mt-3">
+          <Card className="p-4 cursor-pointer" onClick={() => openOrder(active)}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#DBEAFE" }}>
+                  <Truck size={18} color={C.blue} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: C.text }}>Order {active.id}</p>
+                  <p className="text-xs" style={{ color: C.sub }}>{active.serviceName} · {active.items} items</p>
+                </div>
+              </div>
+              <StatusBadge stage={active.stage} />
+            </div>
+            <MiniTimeline stage={active.stage} />
+            <div className="flex items-center justify-between mt-3 text-xs" style={{ color: C.sub }}>
+              <span>Tap to track live</span>
+              <ChevronRight size={14} />
+            </div>
+          </Card>
+        </div>
+      )}
+
+      <div className="px-5 mt-4">
+        <PrimaryButton onClick={goBook} className="py-4 flex items-center justify-center gap-2 text-base">
+          <Plus size={20} /> Book a Pickup
+        </PrimaryButton>
+      </div>
+
+      <div className="px-5 mt-6">
+        <h2 className="text-sm font-semibold mb-3" style={{ color: C.text }}>Our services</h2>
+        <div className="grid grid-cols-3 gap-3">
+          {services.map((s) => (
+            <Card key={s.id} className="p-3 flex flex-col items-center text-center gap-2" onClick={goBook}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#D1FAE5" }}>
+                <s.icon size={18} color={C.primary} />
+              </div>
+              <p className="text-xs font-semibold" style={{ color: C.text }}>{s.name}</p>
+              <p className="text-[10px]" style={{ color: C.sub }}>{s.price}</p>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {recent.length > 0 && (
+        <div className="px-5 mt-6">
+          <h2 className="text-sm font-semibold mb-3" style={{ color: C.text }}>Recent orders</h2>
+          <div className="flex flex-col gap-2">
+            {recent.map((o) => (
+              <Card key={o.id} className="p-3 flex items-center justify-between" onClick={() => openOrder(o)}>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: C.text }}>{o.serviceName}</p>
+                  <p className="text-xs" style={{ color: C.sub }}>{o.date} · {o.items} items</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge stage={o.stage} />
+                  <ChevronRight size={16} color={C.sub} />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerOrders({ orders, openOrder }) {
+  const mine = orders.filter((o) => o.customer === CUSTOMER_NAME);
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2">
+        <h1 className="text-2xl font-bold" style={{ color: C.text }}>Your Orders</h1>
+        <p className="text-sm mt-1" style={{ color: C.sub }}>Track past and current laundry</p>
+      </div>
+      <div className="px-5 mt-2 flex flex-col gap-3">
+        {mine.map((o) => (
+          <Card key={o.id} className="p-4 cursor-pointer" onClick={() => openOrder(o)}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold" style={{ color: C.text }}>{o.id}</p>
+              <StatusBadge stage={o.stage} />
+            </div>
+            <p className="text-sm" style={{ color: C.text }}>{o.serviceName} · {o.items} items</p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs" style={{ color: C.sub }}>{o.date}</p>
+              <p className="text-sm font-semibold" style={{ color: C.text }}>KES {o.amount}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CustomerOrderDetail({ order, onBack }) {
+  if (!order) return null;
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2 flex items-center gap-3">
+        <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: C.section }}>
+          <ChevronLeft size={18} />
+        </button>
+        <div>
+          <h1 className="text-lg font-bold" style={{ color: C.text }}>Order {order.id}</h1>
+          <p className="text-xs" style={{ color: C.sub }}>{order.serviceName} · {order.items} items</p>
+        </div>
+      </div>
+      <div className="px-5 mt-4">
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold mb-4" style={{ color: C.text }}>Live tracking</h3>
+          <div className="flex flex-col">
+            {STAGES.map((s, i) => {
+              const done = i < order.stage;
+              const current = i === order.stage;
+              const isLast = i === STAGES.length - 1;
+              return (
+                <div key={s.key} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: done ? C.primary : C.section }}>
+                      {done ? <CheckCircle2 size={18} color="#fff" /> : <s.icon size={16} color={C.sub} />}
+                    </div>
+                    {!isLast && <div className="w-0.5 flex-1 my-1" style={{ background: i < order.stage - 1 ? C.primary : C.section, minHeight: 28 }} />}
+                  </div>
+                  <div className="pb-6">
+                    <p className="text-sm font-semibold" style={{ color: done ? C.text : C.sub }}>{s.label}</p>
+                    {current && <p className="text-xs mt-0.5" style={{ color: C.info }}>In progress · updates every 30 min</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+      <div className="px-5 mt-4">
+        <Card className="p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3"><MapPin size={16} color={C.sub} /><p className="text-sm" style={{ color: C.text }}>{order.address}</p></div>
+          <div className="flex items-center gap-3"><Clock size={16} color={C.sub} /><p className="text-sm" style={{ color: C.text }}>{order.date}</p></div>
+          <div className="flex items-center gap-3"><CreditCard size={16} color={C.sub} /><p className="text-sm" style={{ color: C.text }}>KES {order.amount} · Paid via M-PESA</p></div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function CustomerBook({ onConfirm }) {
+  const [step, setStep] = useState(0);
+  const [serviceId, setServiceId] = useState(null);
+  const [slot, setSlot] = useState(null);
+  const steps = ["Service", "Time", "Confirm"];
+  const canNext = (step === 0 && serviceId) || (step === 1 && slot) || step === 2;
+  const service = services.find((s) => s.id === serviceId);
+
+  if (step === 3) {
+    return (
+      <div className="flex flex-col items-center justify-center px-8 pt-24 text-center">
+        <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5" style={{ background: "#D1FAE5" }}>
+          <CheckCircle2 size={40} color={C.primary} />
+        </div>
+        <h1 className="text-xl font-bold" style={{ color: C.text }}>Pickup booked!</h1>
+        <p className="text-sm mt-2" style={{ color: C.sub }}>
+          We'll collect your laundry during {slot}. This order is now visible to dispatch and your assigned driver.
+        </p>
+        <PrimaryButton onClick={() => onConfirm(null)} className="py-4 mt-8">Back to Home</PrimaryButton>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2"><h1 className="text-2xl font-bold" style={{ color: C.text }}>Book a Pickup</h1></div>
+      <div className="px-5 flex items-center gap-2 mt-1 mb-4">
+        {steps.map((label, i) => (
+          <div key={label} className="h-1.5 rounded-full flex-1" style={{ background: i <= step ? C.primary : C.section, transition: "background 0.3s" }} />
+        ))}
+      </div>
+      <p className="px-5 text-xs font-semibold mb-3" style={{ color: C.sub }}>STEP {step + 1} OF 3 · {steps[step].toUpperCase()}</p>
+
+      {step === 0 && (
+        <div className="px-5 flex flex-col gap-3">
+          {services.map((s) => (
+            <Card key={s.id} className="p-4 flex items-center gap-3 cursor-pointer" onClick={() => setServiceId(s.id)}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: serviceId === s.id ? C.primary : "#D1FAE5" }}>
+                <s.icon size={20} color={serviceId === s.id ? "#fff" : C.primary} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold" style={{ color: C.text }}>{s.name}</p>
+                <p className="text-xs" style={{ color: C.sub }}>{s.desc}</p>
+              </div>
+              <p className="text-xs font-semibold" style={{ color: C.text }}>{s.price}</p>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="px-5">
+          <div className="flex items-center gap-2 mb-4 text-sm" style={{ color: C.text }}>
+            <Calendar size={16} color={C.primary} /> Today, Jul 3
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {timeSlots.map((t) => (
+              <Card key={t} className="p-3 text-center cursor-pointer" onClick={() => setSlot(t)}>
+                <p className="text-sm font-semibold" style={{ color: slot === t ? C.primary : C.text }}>{t}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="px-5 flex flex-col gap-3">
+          <Card className="p-4">
+            <div className="flex justify-between text-sm mb-2"><span style={{ color: C.sub }}>Service</span><span className="font-semibold" style={{ color: C.text }}>{service?.name}</span></div>
+            <div className="flex justify-between text-sm mb-2"><span style={{ color: C.sub }}>Pickup window</span><span className="font-semibold" style={{ color: C.text }}>{slot}</span></div>
+            <div className="flex justify-between text-sm"><span style={{ color: C.sub }}>Address</span><span className="font-semibold" style={{ color: C.text }}>{CUSTOMER_ADDRESS}</span></div>
+          </Card>
+          <Card className="p-4 flex items-center gap-3">
+            <CreditCard size={18} color={C.blue} />
+            <p className="text-sm flex-1" style={{ color: C.text }}>Pay via M-PESA on delivery</p>
+          </Card>
+        </div>
+      )}
+
+      <div className="px-5 mt-6 flex gap-3">
+        {step > 0 && <SecondaryButton onClick={() => setStep(step - 1)} className="py-3.5 flex-1">Back</SecondaryButton>}
+        <PrimaryButton
+          disabled={!canNext}
+          onClick={() => {
+            if (step === 2) onConfirm({ service, slot });
+            setStep(step + 1);
+          }}
+          className="py-3.5 flex-1"
+        >
+          {step === 2 ? "Confirm Booking" : "Continue"}
+        </PrimaryButton>
+      </div>
+    </div>
+  );
+}
+
+function CustomerApp({ orders, addOrder }) {
+  const [tab, setTab] = useState("home");
+  const [selected, setSelected] = useState(null);
+
+  const openOrder = (o) => setSelected(o);
+  const closeOrder = () => setSelected(null);
+  const goBook = () => setTab("book");
+
+  const handleConfirm = (booking) => {
+    if (booking) {
+      const id = `EC-${orderSeq++}`;
+      addOrder({
+        id, customer: CUSTOMER_NAME, phone: CUSTOMER_PHONE, address: CUSTOMER_ADDRESS,
+        serviceName: booking.service.name, serviceIcon: booking.service.icon, items: Math.floor(Math.random() * 6) + 4,
+        amount: booking.service.amount, window: booking.slot, date: "Today", stage: 0,
+      });
+    } else {
+      setTab("home");
+    }
+  };
+
+  let screen;
+  if (selected) screen = <CustomerOrderDetail order={selected} onBack={closeOrder} />;
+  else if (tab === "home") screen = <CustomerHome orders={orders} goBook={goBook} openOrder={openOrder} />;
+  else if (tab === "orders") screen = <CustomerOrders orders={orders} openOrder={openOrder} />;
+  else if (tab === "book") screen = <CustomerBook onConfirm={handleConfirm} />;
+  else if (tab === "notifications") screen = <CustomerNotifications />;
+  else if (tab === "profile") screen = <CustomerProfile />;
+
+  const items = [
+    { key: "home", label: "Home", icon: Home },
+    { key: "orders", label: "Orders", icon: Package },
+    { key: "book", label: "Book", icon: Plus, center: true },
+    { key: "notifications", label: "Alerts", icon: Bell },
+    { key: "profile", label: "Profile", icon: User },
+  ];
+
+  return (
+    <div className="relative w-[390px] h-[780px] bg-white rounded-[40px] overflow-hidden shadow-2xl border-[6px]" style={{ borderColor: "#111827", fontFamily: FONT }}>
+      <div className="h-11 flex items-center justify-between px-6 text-xs font-semibold" style={{ color: C.text }}>
+        <span>9:41</span><span>EcoCleaners</span>
+      </div>
+      <div className="overflow-y-auto" style={{ height: "calc(100% - 44px - 78px)" }}>{screen}</div>
+      <div className="absolute bottom-0 left-0 right-0 flex items-end justify-around px-2 pb-2 pt-2" style={{ background: "#fff", borderTop: "1px solid #F3F4F6" }}>
+        {items.map((it) =>
+          it.center ? (
+            <button key={it.key} onClick={() => { setSelected(null); setTab(it.key); }} className="flex flex-col items-center -mt-6">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ background: C.primary }}>
+                <Plus size={26} color="#fff" />
+              </div>
+            </button>
+          ) : (
+            <button key={it.key} onClick={() => { setSelected(null); setTab(it.key); }} className="flex flex-col items-center gap-1 py-1 px-3" style={{ minHeight: 44, minWidth: 44 }}>
+              <it.icon size={20} color={tab === it.key && !selected ? C.primary : "#9CA3AF"} />
+              <span className="text-[10px] font-medium" style={{ color: tab === it.key && !selected ? C.primary : "#9CA3AF" }}>{it.label}</span>
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CustomerNotifications() {
+  const notifs = [
+    { title: "Order EC-1042 is being picked up", time: "10 min ago" },
+    { title: "Order EC-1039 is being folded", time: "1 hr ago" },
+    { title: "Order EC-1035 delivered", time: "Jun 29" },
+  ];
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2"><h1 className="text-2xl font-bold" style={{ color: C.text }}>Notifications</h1></div>
+      <div className="px-5 mt-2 flex flex-col gap-2">
+        {notifs.map((n, i) => (
+          <Card key={i} className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: C.section }}><Bell size={16} color={C.sub} /></div>
+            <div className="flex-1"><p className="text-sm font-medium" style={{ color: C.text }}>{n.title}</p><p className="text-xs mt-0.5" style={{ color: C.sub }}>{n.time}</p></div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CustomerProfile() {
+  const rows = [
+    { label: "Saved addresses", icon: MapPin },
+    { label: "Payment methods", icon: CreditCard },
+    { label: "Order history", icon: Package },
+    { label: "Rate our service", icon: Star },
+  ];
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2"><h1 className="text-2xl font-bold" style={{ color: C.text }}>Profile</h1></div>
+      <div className="px-5 mt-2">
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: C.primary }}>A</div>
+          <div><p className="text-sm font-bold" style={{ color: C.text }}>Amina Wanjiru</p><p className="text-xs" style={{ color: C.sub }}>Komo Ridge Estate, Nairobi</p></div>
+        </Card>
+      </div>
+      <div className="px-5 mt-4 flex flex-col gap-2">
+        {rows.map((r) => (
+          <Card key={r.label} className="p-4 flex items-center justify-between cursor-pointer">
+            <div className="flex items-center gap-3"><r.icon size={17} color={C.sub} /><p className="text-sm font-medium" style={{ color: C.text }}>{r.label}</p></div>
+            <ChevronRight size={16} color={C.sub} />
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ADMIN DASHBOARD
+// ============================================================
+const revenueByDay = [
+  { day: "Mon", revenue: 18500 }, { day: "Tue", revenue: 21200 }, { day: "Wed", revenue: 19800 },
+  { day: "Thu", revenue: 26400 }, { day: "Fri", revenue: 31200 }, { day: "Sat", revenue: 29600 }, { day: "Sun", revenue: 14200 },
+];
+
+function AdminSidebar({ active, setActive }) {
+  const items = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "orders", label: "Orders", icon: Package },
+    { key: "customers", label: "Customers", icon: Users },
+    { key: "drivers", label: "Drivers", icon: Truck },
+    { key: "services", label: "Services", icon: Wrench },
+    { key: "pricing", label: "Pricing", icon: Tag },
+    { key: "marketing", label: "Marketing", icon: Megaphone },
+    { key: "reports", label: "Reports", icon: BarChart3 },
+    { key: "settings", label: "Settings", icon: Settings },
+  ];
+  return (
+    <div className="w-60 h-full flex flex-col flex-shrink-0" style={{ background: "#fff", borderRight: `1px solid ${C.border}` }}>
+      <div className="h-16 flex items-center gap-2 px-5" style={{ borderBottom: `1px solid ${C.border}` }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: C.primary }}><Sparkles size={16} color="#fff" /></div>
+        <span className="font-bold text-base" style={{ color: C.text }}>EcoCleaners</span>
+      </div>
+      <div className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
+        {items.map((it) => {
+          const isActive = active === it.key;
+          return (
+            <button key={it.key} onClick={() => setActive(it.key)} className="flex items-center gap-3 px-3 rounded-xl text-sm font-medium transition-colors" style={{ minHeight: 44, background: isActive ? C.primaryLight : "transparent", color: isActive ? C.primary : C.sub }}>
+              <it.icon size={18} />{it.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="p-3" style={{ borderTop: `1px solid ${C.border}` }}>
+        <div className="flex items-center gap-3 px-2 py-2">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: C.primary }}>T</div>
+          <div className="flex-1 min-w-0"><p className="text-sm font-semibold truncate" style={{ color: C.text }}>Trevor Simon</p><p className="text-xs truncate" style={{ color: C.sub }}>Founder & CEO</p></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminTopbar({ onSimulate }) {
+  return (
+    <div className="h-16 flex items-center justify-between px-6 flex-shrink-0" style={{ borderBottom: `1px solid ${C.border}`, background: "#fff" }}>
+      <div>
+        <h1 className="text-lg font-bold" style={{ color: C.text }}>Dashboard</h1>
+        <p className="text-xs" style={{ color: C.sub }}>Komo Ridge Estate · Friday, Jul 3</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 px-3 rounded-xl" style={{ background: C.section, height: 40, width: 240 }}>
+          <Search size={16} color={C.faint} />
+          <input placeholder="Search orders..." className="bg-transparent outline-none text-sm flex-1" style={{ color: C.text }} />
+        </div>
+        <button onClick={onSimulate} className="flex items-center gap-2 px-4 rounded-xl text-white text-sm font-semibold" style={{ background: C.blue, height: 40 }}>
+          <RefreshCw size={15} /> Run Wash+Fold Cycle
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ label, value, delta, positive, icon: Icon, accent }) {
+  return (
+    <Card className="p-5 flex-1 min-w-[220px]">
+      <div className="flex items-start justify-between mb-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: accent + "1A" }}><Icon size={18} color={accent} /></div>
+        <span className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full" style={{ background: positive ? "#DCFCE7" : "#FEE2E2", color: positive ? C.success : C.error }}>
+          {positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}{delta}
+        </span>
+      </div>
+      <p className="text-2xl font-bold" style={{ color: C.text, letterSpacing: "-0.02em" }}>{value}</p>
+      <p className="text-sm mt-1" style={{ color: C.sub }}>{label}</p>
+    </Card>
+  );
+}
+
+function AdminDashboardContent({ orders, onSimulate }) {
+  const totalRevenue = orders.reduce((s, o) => s + o.amount, 0);
+  const activeCount = orders.filter((o) => o.stage < 4).length;
+  const uniqueCustomers = new Set(orders.map((o) => o.customer)).size;
+  const insights = [
+    { title: "Live order from Amina Wanjiru", body: `Order ${orders.find(o=>o.customer===CUSTOMER_NAME && o.stage<4)?.id || "—"} just entered the pipeline from the customer app.`, tone: "info" },
+    { title: "3 orders mid-cycle", body: "Use 'Run Wash+Fold Cycle' to advance orders through washing and folding.", tone: "warning" },
+    { title: "Revenue on track", body: `KES ${totalRevenue.toLocaleString()} across ${orders.length} live orders this view.`, tone: "success" },
+  ];
+  const insightTone = { info: { bg: C.blueLight, fg: C.blue }, warning: { bg: "#FEF3C7", fg: C.warning }, success: { bg: C.primaryLight, fg: C.primary } };
+
+  const activity = [...orders].slice(0, 5).map((o) => ({
+    icon: o.stage === 0 ? Package : o.stage === 4 ? CheckCircle2 : Truck,
+    text: o.stage === 0 ? `New order ${o.id} from ${o.customer}` : o.stage === 4 ? `${o.id} delivered to ${o.customer}` : `${o.id} is now ${STAGES[o.stage - 1].label.toLowerCase()}`,
+    color: o.stage === 0 ? C.blue : o.stage === 4 ? C.success : C.warning,
+  }));
+
+  return (
+    <div className="p-6 flex flex-col gap-5">
+      <div className="flex flex-wrap gap-4">
+        <KpiCard label="Revenue (live)" value={`KES ${totalRevenue.toLocaleString()}`} delta="+18.2%" positive icon={DollarSign} accent={C.primary} />
+        <KpiCard label="Total Orders" value={orders.length} delta="+11.4%" positive icon={ShoppingBag} accent={C.blue} />
+        <KpiCard label="Active in Pipeline" value={activeCount} delta="live" positive icon={TrendingUp} accent={C.warning} />
+        <KpiCard label="Customers" value={uniqueCustomers} delta="+1" positive icon={Users} accent={C.info} />
+      </div>
+
+      <div className="flex gap-5 flex-wrap">
+        <Card className="p-5 flex-1 min-w-[400px]">
+          <div className="flex items-center justify-between mb-4">
+            <div><h3 className="text-sm font-semibold" style={{ color: C.text }}>Revenue this week</h3><p className="text-xs" style={{ color: C.sub }}>KES, Mon–Sun</p></div>
+            <button className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg" style={{ background: C.section, color: C.sub }}>7 days <ChevronDown size={12} /></button>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={revenueByDay} margin={{ left: -20, top: 5, right: 5 }}>
+              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.primary} stopOpacity={0.25} /><stop offset="95%" stopColor={C.primary} stopOpacity={0} /></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={C.border} />
+              <XAxis dataKey="day" tick={{ fontSize: 12, fill: C.sub }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: C.sub }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: `1px solid ${C.border}`, fontSize: 12 }} formatter={(v) => [`KES ${v.toLocaleString()}`, "Revenue"]} />
+              <Area type="monotone" dataKey="revenue" stroke={C.primary} strokeWidth={2.5} fill="url(#rev)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card className="p-5 flex-1 min-w-[300px]">
+          <div className="mb-4"><h3 className="text-sm font-semibold" style={{ color: C.text }}>Orders by stage</h3><p className="text-xs" style={{ color: C.sub }}>Live pipeline</p></div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={[0,1,2,3,4].map((s)=>({ stage: s===0?"Booked":STAGES[s-1].label, count: orders.filter(o=>o.stage===s).length }))} margin={{ left: -20, top: 5, right: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={C.border} />
+              <XAxis dataKey="stage" tick={{ fontSize: 10, fill: C.sub }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: C.sub }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: `1px solid ${C.border}`, fontSize: 12 }} />
+              <Bar dataKey="count" fill={C.blue} radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      <div className="flex gap-5 items-start flex-wrap">
+        <div className="flex-1 min-w-[500px]">
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold" style={{ color: C.text }}>All orders</h3>
+              <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg" style={{ background: C.section, color: C.sub }}><Filter size={12} /> Filter</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>{["Order", "Customer", "Service", "Amount", "Status", ""].map((h) => <th key={h} className="text-left py-2.5 px-2 font-medium text-xs" style={{ color: C.faint }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {orders.map((o) => (
+                    <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                      <td className="py-3 px-2 font-semibold" style={{ color: C.text }}>{o.id}</td>
+                      <td className="py-3 px-2" style={{ color: C.text }}>{o.customer}</td>
+                      <td className="py-3 px-2" style={{ color: C.sub }}>{o.serviceName}</td>
+                      <td className="py-3 px-2 font-medium" style={{ color: C.text }}>KES {o.amount.toLocaleString()}</td>
+                      <td className="py-3 px-2"><StatusBadge stage={o.stage} /></td>
+                      <td className="py-3 px-2"><button className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: C.section }}><MoreVertical size={14} color={C.sub} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+        <div className="w-[320px] flex flex-col gap-5">
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: C.primaryLight }}><Sparkles size={14} color={C.primary} /></div>
+              <h3 className="text-sm font-semibold" style={{ color: C.text }}>AI Insights</h3>
+            </div>
+            <div className="flex flex-col gap-3">
+              {insights.map((ins, i) => {
+                const t = insightTone[ins.tone];
+                return <div key={i} className="p-3 rounded-xl" style={{ background: C.section }}><p className="text-xs font-semibold mb-1" style={{ color: t.fg }}>{ins.title}</p><p className="text-xs leading-relaxed" style={{ color: C.sub }}>{ins.body}</p></div>;
+              })}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold mb-4" style={{ color: C.text }}>Live activity</h3>
+            <div className="flex flex-col gap-4">
+              {activity.map((a, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: a.color + "1A" }}><a.icon size={14} color={a.color} /></div>
+                  <p className="text-sm flex-1" style={{ color: C.text }}>{a.text}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminApp({ orders, onSimulate }) {
+  const [active, setActive] = useState("dashboard");
+  return (
+    <div className="w-full h-full flex" style={{ background: C.section, fontFamily: FONT }}>
+      <AdminSidebar active={active} setActive={setActive} />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <AdminTopbar onSimulate={onSimulate} />
+        <div className="flex-1 overflow-y-auto">
+          {active === "dashboard" ? <AdminDashboardContent orders={orders} onSimulate={onSimulate} /> : (
+            <div className="p-10 flex flex-col items-center justify-center text-center" style={{ minHeight: 400 }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: C.primaryLight }}><Clock size={24} color={C.primary} /></div>
+              <p className="text-sm font-semibold" style={{ color: C.text }}>{active.charAt(0).toUpperCase() + active.slice(1)} coming soon</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DRIVER APP
+// ============================================================
+function JobBadge({ type }) {
+  const map = { pickup: { bg: "#DBEAFE", fg: C.blue, label: "PICKUP" }, delivery: { bg: "#D1FAE5", fg: C.primary, label: "DELIVERY" } };
+  const s = map[type];
+  return <span className="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide" style={{ background: s.bg, color: s.fg }}>{s.label}</span>;
+}
+
+function BigButton({ children, onClick, color = C.primary }) {
+  return (
+    <button onClick={onClick} className="w-full rounded-2xl font-bold text-white text-base transition-transform active:scale-[0.98]" style={{ background: color, minHeight: 56 }}>
+      {children}
+    </button>
+  );
+}
+
+function driverJobsFrom(orders) {
+  const pickups = orders.filter((o) => o.stage === 0).map((o) => ({ ...o, type: "pickup" }));
+  const deliveries = orders.filter((o) => o.stage === 3).map((o) => ({ ...o, type: "delivery" }));
+  const done = orders.filter((o) => o.stage === 4).map((o) => ({ ...o, type: "delivery" }));
+  return { pending: [...pickups, ...deliveries], done };
+}
+
+function DriverJobs({ orders, openJob }) {
+  const { pending, done } = driverJobsFrom(orders);
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2">
+        <p className="text-sm" style={{ color: C.sub }}>Today, Jul 3</p>
+        <h1 className="text-2xl font-bold" style={{ color: C.text, letterSpacing: "-0.02em" }}>{pending.length} jobs left</h1>
+      </div>
+      <div className="px-5 mt-3 flex flex-col gap-3">
+        {pending.map((j) => (
+          <div key={j.id + j.type} onClick={() => openJob(j)} className="rounded-2xl p-4 cursor-pointer bg-white border border-gray-100" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <div className="flex items-center justify-between mb-2"><JobBadge type={j.type} /><span className="text-xs font-semibold" style={{ color: C.warning }}>{j.window}</span></div>
+            <p className="text-base font-bold" style={{ color: C.text }}>{j.customer}</p>
+            <div className="flex items-center gap-1.5 mt-1"><MapPin size={13} color={C.sub} /><p className="text-xs" style={{ color: C.sub }}>{j.address}</p></div>
+          </div>
+        ))}
+        {pending.length === 0 && <p className="text-sm text-center py-8" style={{ color: C.sub }}>No jobs right now. New pickups appear here automatically.</p>}
+      </div>
+      {done.length > 0 && (
+        <div className="px-5 mt-6">
+          <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: C.sub }}>Completed</p>
+          <div className="flex flex-col gap-3">
+            {done.map((j) => (
+              <div key={j.id} className="rounded-2xl p-4 bg-white border border-gray-100 opacity-60">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><CheckCircle2 size={16} color={C.success} /><p className="text-sm font-semibold" style={{ color: C.text }}>{j.customer}</p></div>
+                  <span className="text-xs" style={{ color: C.sub }}>{j.window}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DriverJobDetail({ job, onBack, onAdvance }) {
+  if (!job) return null;
+  const isPickup = job.type === "pickup";
+  const label = isPickup ? "Mark Picked Up" : "Mark Delivered";
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-5 pt-6 pb-3 flex items-center gap-3 flex-shrink-0">
+        <button onClick={onBack} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: C.section }}><ChevronLeft size={20} color={C.text} /></button>
+        <JobBadge type={job.type} />
+      </div>
+      <div className="mx-5 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ height: 200, background: "linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%)" }}>
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: C.primary }}><Navigation size={22} color="#fff" /></div>
+          <p className="text-xs font-semibold" style={{ color: C.blue }}>4.2 km away · 11 min</p>
+        </div>
+      </div>
+      <div className="px-5 mt-5 flex-1 overflow-y-auto">
+        <h1 className="text-xl font-bold" style={{ color: C.text }}>{job.customer}</h1>
+        <div className="flex items-center gap-2 mt-2"><MapPin size={16} color={C.sub} /><p className="text-sm" style={{ color: C.sub }}>{job.address}</p></div>
+        <div className="mt-5 rounded-2xl p-4 bg-white border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: C.section }}><job.serviceIcon size={18} color={C.text} /></div>
+            <div><p className="text-sm font-semibold" style={{ color: C.text }}>{job.serviceName}</p><p className="text-xs" style={{ color: C.sub }}>{job.items} items · Order {job.id}</p></div>
+          </div>
+        </div>
+        <div className="mt-3 rounded-2xl p-4 bg-white border border-gray-100 flex items-center gap-2"><Clock size={16} color={C.sub} /><p className="text-sm" style={{ color: C.text }}>{job.window}</p></div>
+        <a href={`tel:${job.phone.replace(/\s/g, "")}`} className="mt-3 rounded-2xl p-4 bg-white border border-gray-100 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#DBEAFE" }}><Phone size={16} color={C.blue} /></div>
+          <p className="text-sm font-semibold" style={{ color: C.blue }}>Call customer</p>
+        </a>
+      </div>
+      <div className="px-5 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${C.section}` }}>
+        <BigButton onClick={() => { onAdvance(job.id, job.type); onBack(); }} color={C.primary}>{label}</BigButton>
+      </div>
+    </div>
+  );
+}
+
+function DriverMap({ orders }) {
+  const { pending } = driverJobsFrom(orders);
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-5 pt-6 pb-3"><h1 className="text-xl font-bold" style={{ color: C.text }}>Route Map</h1></div>
+      <div className="mx-5 rounded-2xl flex-1 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%)" }}>
+        <div className="flex flex-col items-center gap-2"><MapIcon size={36} color={C.blue} /><p className="text-sm font-semibold" style={{ color: C.blue }}>{pending.length} stops on route</p></div>
+      </div>
+      <div className="px-5 py-4 flex flex-col gap-2">
+        {pending.map((j, i) => (
+          <div key={j.id + j.type} className="flex items-center gap-3 rounded-xl p-3 bg-white border border-gray-100">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background: C.blue }}>{i + 1}</div>
+            <p className="text-sm flex-1 truncate" style={{ color: C.text }}>{j.customer}</p>
+            <JobBadge type={j.type} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DriverProfile({ orders }) {
+  const { done } = driverJobsFrom(orders);
+  const stats = [{ label: "Jobs today", value: driverJobsFrom(orders).pending.length + done.length }, { label: "Completed", value: done.length }, { label: "This week", value: 22 }];
+  return (
+    <div className="pb-4">
+      <div className="px-5 pt-6 pb-2"><h1 className="text-xl font-bold" style={{ color: C.text }}>Profile</h1></div>
+      <div className="px-5 mt-3">
+        <div className="rounded-2xl p-5 bg-white border border-gray-100 flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold" style={{ background: C.primary }}>J</div>
+          <div><p className="text-base font-bold" style={{ color: C.text }}>James Mwangi</p><p className="text-xs" style={{ color: C.sub }}>Driver · Komo Ridge Route</p></div>
+        </div>
+      </div>
+      <div className="px-5 mt-4 grid grid-cols-3 gap-3">
+        {stats.map((s) => <div key={s.label} className="rounded-2xl p-3 bg-white border border-gray-100 text-center"><p className="text-lg font-bold" style={{ color: C.text }}>{s.value}</p><p className="text-[11px] mt-0.5" style={{ color: C.sub }}>{s.label}</p></div>)}
+      </div>
+      <div className="px-5 mt-5"><BigButton color={C.error}>Go Offline</BigButton></div>
+    </div>
+  );
+}
+
+function DriverApp({ orders, advanceOrder }) {
+  const [tab, setTab] = useState("jobs");
+  const [selectedJob, setSelectedJob] = useState(null);
+
+  let screen;
+  if (selectedJob) screen = <DriverJobDetail job={selectedJob} onBack={() => setSelectedJob(null)} onAdvance={advanceOrder} />;
+  else if (tab === "jobs") screen = <DriverJobs orders={orders} openJob={setSelectedJob} />;
+  else if (tab === "map") screen = <DriverMap orders={orders} />;
+  else if (tab === "profile") screen = <DriverProfile orders={orders} />;
+
+  const items = [{ key: "jobs", label: "Jobs", icon: Briefcase }, { key: "map", label: "Map", icon: MapIcon }, { key: "profile", label: "Profile", icon: User }];
+
+  return (
+    <div className="relative w-[390px] h-[780px] bg-white rounded-[40px] overflow-hidden shadow-2xl border-[6px] flex" style={{ borderColor: "#111827", fontFamily: FONT }}>
+      {!selectedJob && (
+        <div className="w-20 h-full flex flex-col items-center gap-2 pt-6 flex-shrink-0" style={{ background: "#fff", borderRight: `1px solid ${C.section}` }}>
+          {items.map((it) => {
+            const isActive = tab === it.key;
+            return (
+              <button key={it.key} onClick={() => setTab(it.key)} className="flex flex-col items-center gap-1 py-3 rounded-2xl w-16" style={{ minHeight: 44, background: isActive ? "#D1FAE5" : "transparent" }}>
+                <it.icon size={20} color={isActive ? C.primary : C.sub} />
+                <span className="text-[10px] font-semibold" style={{ color: isActive ? C.primary : C.sub }}>{it.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <div className="flex-1 h-full overflow-y-auto" style={{ background: "#fff" }}>{screen}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// APP SHELL — shared order state + demo-only role switcher
+// ============================================================
+export default function EcoCleanersConnectedDemo() {
+  const [orders, setOrders] = useState(seedOrders());
+  const [role, setRole] = useState("customer");
+
+  const addOrder = (order) => setOrders((prev) => [order, ...prev]);
+
+  const advanceOrder = (id, type) => {
+    setOrders((prev) => prev.map((o) => {
+      if (o.id !== id) return o;
+      if (type === "pickup") return { ...o, stage: 1 };
+      if (type === "delivery") return { ...o, stage: 4 };
+      return o;
+    }));
+  };
+
+  const simulateWashFold = () => {
+    setOrders((prev) => prev.map((o) => (o.stage === 1 || o.stage === 2) ? { ...o, stage: o.stage + 1 } : o));
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center py-6" style={{ background: "#E5E7EB", fontFamily: FONT }}>
+      {/* Demo-only control — not part of any real product surface */}
+      <div className="flex items-center gap-1 bg-white rounded-full p-1 mb-6 shadow-sm border border-gray-200">
+        {[
+          { key: "customer", label: "Customer App" },
+          { key: "admin", label: "Admin Dashboard" },
+          { key: "driver", label: "Driver App" },
+        ].map((r) => (
+          <button
+            key={r.key}
+            onClick={() => setRole(r.key)}
+            className="px-4 py-2 rounded-full text-xs font-semibold transition-colors"
+            style={{ background: role === r.key ? C.text : "transparent", color: role === r.key ? "#fff" : C.sub }}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {role === "customer" && <CustomerApp orders={orders} addOrder={addOrder} />}
+      {role === "admin" && (
+        <div className="w-[1100px] h-[720px] rounded-2xl overflow-hidden shadow-2xl">
+          <AdminApp orders={orders} onSimulate={simulateWashFold} />
+        </div>
+      )}
+      {role === "driver" && <DriverApp orders={orders} advanceOrder={advanceOrder} />}
+    </div>
+  );
+}

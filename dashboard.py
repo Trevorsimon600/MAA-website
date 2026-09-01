@@ -217,29 +217,34 @@ elif page == "Generate Image":
 # ============================================================
 elif page == "Upload File":
     st.title("📂 Upload File / Image")
+    st.markdown("Upload a file so MAA agents can use it later.")
 
     uploaded_file = st.file_uploader(
-        "Choose a file",
-        type=["txt", "pdf", "png", "jpg", "jpeg", "md", "csv", "json"]
+        "Choose a file to upload",
+        type=["txt", "pdf", "md", "csv", "json", "png", "jpg", "jpeg"],
+        help="Supported: text files, PDFs, images"
     )
 
     if uploaded_file is not None:
-        # Save the file
         save_dir = "uploads"
         os.makedirs(save_dir, exist_ok=True)
         filepath = os.path.join(save_dir, uploaded_file.name)
 
+        # Save the file
         with open(filepath, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        st.success(f"File saved: `{filepath}`")
+        st.success(f"✅ File successfully uploaded and saved as:")
+        st.code(filepath)
 
-        # Preview
+        # Show preview
         if uploaded_file.type.startswith("image"):
             st.image(filepath, caption=uploaded_file.name, use_container_width=True)
         else:
             try:
-                content = uploaded_file.read().decode("utf-8")
-                st.text_area("File Preview", content[:3000], height=300)
+                content = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+                st.text_area("Preview (first 2000 characters)", content[:2000], height=250)
             except Exception:
-                st.info("File uploaded successfully (binary or unsupported preview).")
+                st.info("File saved (preview not available for this file type).")
+
+        st.info("You can now go to **Run Objective** and ask MAA to use this file.")
