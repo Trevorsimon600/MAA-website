@@ -107,15 +107,19 @@ class Orchestrator:
         # 1. Coordinator creates a dynamic task plan
         print("→ Coordinator is creating a task plan...")
 
-        plan_prompt = f"Create a clear plan for this objective:\n{objective}"
+        plan_prompt = f"Create a clear and structured plan for this objective:\n{objective}"
+        
+        if previous_context:
+                    plan_prompt = f"""You are continuing a previous run.
 
-        if project_context:
-            plan_prompt = (
-                "You are continuing an existing project.\n\n"
-                f"{project_context}\n\n"
-                f"New objective:\n{objective}\n\n"
-                "Create a clear plan that builds on the previous work."
-            )
+        {previous_context}
+
+        New follow-up objective:
+        {objective}
+
+        Create a plan that builds on the previous work instead of starting over."""
+                elif project_context:
+                    plan_prompt = f"You are continuing an existing project.\n\n{project_context}\n\nNew objective:\n{objective}\n\nCreate a plan that builds on previous work."
 
         task_plan = self._run_agent(
             agent_name="Coordinator",

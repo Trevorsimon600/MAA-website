@@ -1,0 +1,56 @@
+[
+  {
+    "timestamp": "2026-09-02T19:24:59.930453",
+    "agent": "SYSTEM",
+    "level": "INFO",
+    "message": "Run started | Objective: Your objective here"
+  },
+  {
+    "timestamp": "2026-09-02T19:25:06.888663",
+    "agent": "Planner",
+    "level": "INFO",
+    "message": "Completed: Define Execution Strategy"
+  },
+  {
+    "timestamp": "2026-09-02T19:25:22.058853",
+    "agent": "Researcher",
+    "level": "INFO",
+    "message": "Completed: Read Input Files"
+  },
+  {
+    "timestamp": "2026-09-02T19:27:19.634660",
+    "agent": "Critic",
+    "level": "INFO",
+    "message": "Completed: Critical Review"
+  },
+  {
+    "timestamp": "2026-09-02T19:28:17.037204",
+    "agent": "Verifier",
+    "level": "INFO",
+    "message": "Completed: Verify Results"
+  },
+  {
+    "timestamp": "2026-09-02T19:28:26.650149",
+    "agent": "Researcher",
+    "level": "INFO",
+    "message": "Completed: Read and Analyze Input Files"
+  },
+  {
+    "timestamp": "2026-09-02T19:29:03.172364",
+    "agent": "Coordinator",
+    "level": "INFO",
+    "message": "Completed: Final Summary"
+  },
+  {
+    "timestamp": "2026-09-02T19:29:14.912646",
+    "agent": "EVALUATOR",
+    "level": "SCORE",
+    "message": "Quality Score: 2/10"
+  },
+  {
+    "timestamp": "2026-09-02T19:29:14.912842",
+    "agent": "SYSTEM",
+    "level": "INFO",
+    "message": "Run finished"
+  }
+]

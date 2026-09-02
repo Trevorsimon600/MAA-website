@@ -1,6 +1,8 @@
 from v0_2.core.registry import AgentRegistry
 from v0_2.core.tool_registry import ToolRegistry
 from v0_2.core.run_state import RunState
+from v0_2.core.collaboration import detect_help_request
+from v0_2.core.tool_user import ToolUser
 from tasks.manager import TaskManager
 from memory.simple_memory import SimpleMemory
 from core.project import ProjectManager
@@ -17,10 +19,12 @@ class OrchestratorV2:
     universal tool execution, step count telemetry, and estimated token tracking.
     """
 
-    def __init__(self, agent_registry: AgentRegistry, tool_registry: ToolRegistry, file_manager=None):
+    def __init__(self, agent_registry: AgentRegistry, tool_registry: ToolRegistry, file_manager=None, knowledge_graph=None):
         self.agents = agent_registry
         self.tools = tool_registry
         self.files = file_manager
+        self.knowledge_graph = knowledge_graph
+        self.tool_user = ToolUser(tool_registry)
         self.task_manager = TaskManager()
         self.memory = SimpleMemory()
         self.project_manager = ProjectManager()
@@ -66,18 +70,30 @@ class OrchestratorV2:
             file_context = self.files.get_file_info()
             if file_context:
                 context_parts.append(f"Available workspace files:\n{file_context}")
+                
+                
 
         full_prompt = prompt
         if context_parts:
             full_prompt = "\n\n".join(context_parts) + "\n\n---\n\nCurrent task:\n" + prompt
 
         print(f"\n→ {agent_name} is working on: {task_title}")
+        
+        # Knowledge Graph retrieval
+        if self.knowledge_graph:
+            kg_results = self.knowledge_graph.search(objective, max_results=4)
+            if "No relevant knowledge" not in kg_results:
+                context_parts.append(f"Structured Knowledge:\n{kg_results}")
 
-        # Execute agent
+        # Run the agent (with optional tool use)
         if agent_name == "Researcher" and hasattr(agent, "research"):
-            result = agent.research(objective, plan=prompt)
+            result = agent.research(objective)
         else:
-            result = agent.think(full_prompt)
+            # Allow key agents to use tools
+            if agent_name in ["Analyst", "Critic", "Writer", "Planner"]:
+                result = self.tool_user.try_use_tools(agent, full_prompt)
+            else:
+                result = agent.think(full_prompt)
 
         task.complete(result)
         self.logger.log(agent_name, f"Completed: {task_title}")
@@ -98,6 +114,14 @@ class OrchestratorV2:
             content=f"Finished '{task_title}'. Summary: {result[:120]}...",
             msg_type="result"
         )
+        
+        # Check if the agent is requesting help from another agent
+        help_request = detect_help_request(result)
+        if help_request:
+            target_agent, reason = help_request
+            if target_agent != agent_name and target_agent in self.agents.list_agents():
+                help_result = self._request_help(agent_name, target_agent, result, objective)
+                result = result + f"\n\n=== Help from {target_agent} ===\n{help_result}"
 
         print(f"\n{agent_name} output ({tokens_used} est. tokens):")
         print(result[:1200] + ("..." if len(result) > 1200 else ""))
@@ -105,12 +129,25 @@ class OrchestratorV2:
 
         return result
 
-    def run(self, objective: str, project_id: str = None, max_steps: int = 15) -> Dict[str, Any]:
+    def run(self, objective: str, project_id: str = None, continue_from_run: str = None, max_steps: int = 15) -> Dict[str, Any]:
         print("\n" + "=" * 60)
         print(f"🧠 MAA {Settings.VERSION} (Autonomous Dynamic Mesh)")
         print("=" * 60)
         print(f"Objective: {objective}\n")
 
+        previous_context = ""
+        if continue_from_run:
+            previous = self.memory.load_run(continue_from_run)
+            if previous:
+                print(f"🔄 Continuing from previous run: {continue_from_run}")
+                previous_context = f"""
+Previous Run Context:
+Objective: {previous.get('objective')}
+Final Answer: {previous.get('final', '')[:1000]}
+Verification: {previous.get('verification', '')[:500]}
+"""
+                print(previous_context[:400] + "...")
+                print("-" * 50)
         self.logger.start_run(objective)
         run_state = RunState(objective=objective, project_id=project_id)
 
@@ -186,6 +223,23 @@ class OrchestratorV2:
             "messages": run_state.messages,
             "tasks": self.task_manager.get_all_tasks()
         }
+        
+        # Extract simple knowledge from the final answer
+        if self.knowledge_graph and results.get("final"):
+            try:
+                # Very simple extraction for now
+                final_text = results["final"]
+                # Add a general claim from this run
+                self.knowledge_graph.add_entity("Current Research", "topic")
+                self.knowledge_graph.add_claim(
+                    subject="Current Research",
+                    claim=final_text[:300],
+                    source_run=results.get("evaluation", {}).get("score", "unknown"),
+                    confidence=0.6
+                )
+                print("知识已添加到 Knowledge Graph")
+            except Exception as e:
+                print(f"⚠️ Could not update knowledge graph: {e}")
 
         self.memory.save_run(objective, results)
         if project_id:
@@ -204,3 +258,25 @@ class OrchestratorV2:
 
         print(f"\n🔄 Resuming run {run_id} for objective: {run_state.objective}")
         return self.run(run_state.objective, project_id=run_state.project_id)
+    
+    def _request_help(self, from_agent: str, to_agent: str, context: str, objective: str) -> str:
+        """Allow one agent to request help from another."""
+        print(f"\n🤝 {from_agent} is requesting help from {to_agent}...")
+
+        help_prompt = f"""Another agent ({from_agent}) is requesting your help.
+
+    Original Objective: {objective}
+
+    Context from {from_agent}:
+    {context[:1200]}
+
+    Please provide specialized help according to your role.
+    """
+
+        return self._run_agent(
+            agent_name=to_agent,
+            prompt=help_prompt,
+            task_title=f"Help request from {from_agent}",
+            objective=objective,
+            use_memory=False
+        )

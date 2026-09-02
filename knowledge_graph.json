@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "multi-agent_systems": {
+      "id": "multi-agent_systems",
+      "name": "Multi-agent systems",
+      "type": "concept",
+      "description": "Systems with multiple interacting AI agents",
+      "created_at": "2026-09-02T18:20:28.252713"
+    },
+    "current_research": {
+      "id": "current_research",
+      "name": "Current Research",
+      "type": "topic",
+      "description": "",
+      "created_at": "2026-09-02T19:29:14.880440"
+    }
+  },
+  "claims": [
+    {
+      "id": "38243685",
+      "subject": "multi-agent_systems",
+      "claim": "They offer better modularity and specialization than single models",
+      "source_run": "",
+      "confidence": 0.8,
+      "created_at": "2026-09-02T18:20:28.254031"
+    },
+    {
+      "id": "cafa8b6d",
+      "subject": "current_research",
+      "claim": "<think>\nThe user wants a final comprehensive answer for the objective: \"Your objective here\".\nThis is a placeholder objective. I need to look at the context to understand what the actual objective might be or if the user is testing the system with a placeholder.\n\nLooking at the \"Relevant past knowle",
+      "source_run": 2,
+      "confidence": 0.6,
+      "created_at": "2026-09-02T19:29:14.892076"
+    }
+  ],
+  "relationships": []
+}

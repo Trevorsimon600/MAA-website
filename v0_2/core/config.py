@@ -57,7 +57,7 @@ class Settings:
     )
 
     # System
-    VERSION: str = "0.2.0-dev"
+    VERSION: str = "0.2.0"
     MAX_TOOL_STEPS: int = 5
     MAX_MEMORY_ENTRIES: int = 60
 

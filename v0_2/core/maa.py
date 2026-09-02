@@ -4,6 +4,7 @@ from v0_2.core.tool_registry import ToolRegistry
 from v0_2.core.orchestrator import OrchestratorV2
 from v0_2.core.file_manager import FileManager
 from v0_2.core.run_state import RunState
+from v0_2.core.knowledge_graph import KnowledgeGraph
 from core.project import ProjectManager
 from memory.simple_memory import SimpleMemory
 
@@ -30,6 +31,7 @@ class MAA:
         self.tools = ToolRegistry()
         self.memory = SimpleMemory()
         self.files = FileManager()
+        self.knowledge_graph = KnowledgeGraph()
         self.project_manager = ProjectManager()
 
         # Register ALL agents with universal tool access
@@ -39,7 +41,8 @@ class MAA:
         self.orchestrator = OrchestratorV2(
             agent_registry=self.registry,
             tool_registry=self.tools,
-            file_manager=self.files
+            file_manager=self.files,
+            knowledge_graph=self.knowledge_graph
         )
 
     def _register_agents(self):
@@ -52,10 +55,10 @@ class MAA:
         self.registry.register("Writer", Writer(tool_registry=self.tools))
         self.registry.register("Archivist", Archivist(tool_registry=self.tools))
 
-    def run(self, objective: str, project_id: str = None, max_steps: int = 6):
+    def run(self, objective: str, project_id: str = None, continue_from_run: str = None, max_steps: int = 6):
         print(f"\n🧠 MAA {self.version}")
         print("=" * 60)
-        return self.orchestrator.run(objective, project_id=project_id, max_steps=max_steps)
+        return self.orchestrator.run(objective, project_id=project_id, continue_from_run=continue_from_run, max_steps=max_steps)
 
     def resume_run(self, run_id: str):
         return self.orchestrator.resume_run(run_id)
@@ -90,3 +93,9 @@ class MAA:
 
     def read_file(self, filename: str):
         return self.files.read_text_file(filename)
+    
+    def knowledge_summary(self):
+        return self.knowledge_graph.summary()
+
+    def search_knowledge(self, query: str):
+        return self.knowledge_graph.search(query)
